@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Issuetracker SDK Web — Example</title>
+    <style>
+      body {
+        font: 14px system-ui, sans-serif;
+        padding: 2rem;
+        max-width: 600px;
+        margin: 0 auto;
+        color: #1f2937;
+      }
+      h1 { margin-bottom: 4px; }
+      kbd {
+        background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
+        border: 1px solid #d1d5db; font-family: ui-monospace, monospace;
+      }
+      button {
+        margin: 4px; padding: 8px 14px; cursor: pointer;
+        border: 1px solid #d1d5db; background: white; border-radius: 6px;
+        font-size: 14px;
+      }
+      button:hover { background: #f9fafb; }
+      .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
+      .demo-content {
+        margin-top: 24px; padding: 16px; background: #f3f4f6;
+        border-radius: 8px; border: 1px dashed #d1d5db;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Issuetracker SDK</h1>
+    <p>Triggers (all enabled by default):</p>
+    <ul>
+      <li>Desktop: <kbd>Cmd/Ctrl + Shift + B</kbd></li>
+      <li>Mobile: two-finger long-press 3 seconds</li>
+      <li>Universal: floating button (bottom-right)</li>
+      <li>Programmatic: <code>Issuetracker.report()</code></li>
+    </ul>
+
+    <div class="grid">
+      <button onclick="Issuetracker.report()">Report a bug</button>
+      <button onclick="Issuetracker.recordAction('button_tapped')">Record breadcrumb</button>
+      <button onclick="Issuetracker.identify('Alice Andersen')">Identify as Alice</button>
+      <button onclick="Issuetracker.clearIdentity()">Clear identity</button>
+      <button onclick="Issuetracker.testCrash()">Throw test error</button>
+    </div>
+
+    <div class="demo-content">
+      <h3>Test content</h3>
+      <p>The screenshot capture targets <code>document.body</code>, so this card should appear in any screenshot you take.</p>
+      <p>Try drawing on it in the editor.</p>
+    </div>
+
+    <script type="module">
+      import { Issuetracker } from '/src/index.ts';
+      window.Issuetracker = Issuetracker;
+      Issuetracker.configure({
+        apiKey: 'it_replace_with_real_key_from_admin_ui',
+        endpoint: 'https://issuetracker-api-staging.web.app/v1',
+      });
+    </script>
+  </body>
+</html>
