@@ -23,7 +23,6 @@ import { Issuetracker } from '@issuetracker/sdk-web';
 
 Issuetracker.configure({
   apiKey: 'it_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-  endpoint: 'https://api.issuetracker.no/v1',
 });
 ```
 
@@ -36,21 +35,7 @@ That's it. Triggers (all enabled by default, all configurable):
 | Universal | Floating button in the corner |
 | Programmatic | `Issuetracker.report()` |
 
-## Environments
-
-| Environment | Endpoint |
-| --- | --- |
-| Production | `https://api.issuetracker.no/v1` |
-| Staging | `https://issuetracker-api-staging.web.app/v1` |
-
-Use a staging API key (issued from a workspace on the staging instance) when pointing at staging — production keys are not accepted there, and vice versa.
-
-```ts
-Issuetracker.configure({
-  apiKey: 'it_staging_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-  endpoint: 'https://issuetracker-api-staging.web.app/v1',
-});
-```
+The SDK talks to Issuetracker's hosted backend — there is no endpoint to configure. Staging-prefixed keys (`it_staging_…`) are routed to the staging environment automatically; everything else hits production.
 
 ## Manual trigger
 
@@ -78,7 +63,6 @@ Issuetracker.recordAction('viewed_product', { sku: 'abc-123' });
 ```ts
 Issuetracker.configure({
   apiKey: '...',
-  endpoint: '...',
   enableShortcut: true,            // Cmd/Ctrl+Shift+B
   enableLongPress: true,           // 2-finger 3s
   showFloatingWidget: true,

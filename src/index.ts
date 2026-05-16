@@ -1,7 +1,8 @@
-import type { ConfigureOptions, Runtime } from './runtime';
+import { resolveEndpoint, type ConfigureOptions, type Runtime } from './runtime';
 import { setName, clearName } from './identity';
 import { recordBreadcrumb } from './breadcrumbs';
 import { installCrashHandlers, sendPendingCrashIfAny } from './crash';
+import { installLifecycle } from './lifecycle';
 import { installShortcut } from './triggers/shortcut';
 import { installLongPress } from './triggers/long-press';
 import { installFloatingWidget } from './triggers/widget';
@@ -9,14 +10,17 @@ import { openReporter } from './ui/reporter';
 
 let runtime: Runtime | null = null;
 
-function applyDefaults(opts: ConfigureOptions): Required<ConfigureOptions> {
+type Defaults = Required<Omit<ConfigureOptions, 'onConfigurationError'>> &
+  Pick<ConfigureOptions, 'onConfigurationError'>;
+
+function applyDefaults(opts: ConfigureOptions): Defaults {
   return {
     apiKey: opts.apiKey,
-    endpoint: opts.endpoint.replace(/\/$/, ''),
     enableShortcut: opts.enableShortcut ?? true,
     longPressToReport: opts.longPressToReport ?? true,
     showFloatingWidget: opts.showFloatingWidget ?? true,
     enableCrashReporting: opts.enableCrashReporting ?? true,
+    onConfigurationError: opts.onConfigurationError,
   };
 }
 
@@ -28,12 +32,20 @@ function applyDefaults(opts: ConfigureOptions): Required<ConfigureOptions> {
 export const Issuetracker = {
   configure(options: ConfigureOptions): void {
     const opts = applyDefaults(options);
-    if (!opts.apiKey || !opts.endpoint) {
+    if (!opts.apiKey) {
       // eslint-disable-next-line no-console
-      console.warn('[Issuetracker] configure() requires apiKey and endpoint');
+      console.warn('[Issuetracker] configure() requires apiKey');
       return;
     }
-    runtime = { apiKey: opts.apiKey, endpoint: opts.endpoint };
+    runtime = {
+      apiKey: opts.apiKey,
+      endpoint: resolveEndpoint(opts.apiKey),
+      onConfigurationError: opts.onConfigurationError,
+    };
+    // Rehydrate any prior TERMINATED state from localStorage before
+    // wiring triggers, so the pre-flight gate in openReporter() is
+    // authoritative immediately after configure() returns.
+    installLifecycle();
     if (opts.enableCrashReporting) {
       // Fire any pending crash from the previous session BEFORE
       // installing the new handler — avoids racing with a fresh error
@@ -77,3 +89,4 @@ export const Issuetracker = {
 };
 
 export type { ConfigureOptions, IssueReportType } from './runtime';
+export type { SdkErrorReason } from './errors';

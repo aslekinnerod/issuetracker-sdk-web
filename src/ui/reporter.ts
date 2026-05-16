@@ -3,8 +3,11 @@ import { ISSUE_REPORT_TYPES } from '../runtime';
 import { getName, setName, clearName } from '../identity';
 import { captureScreenshot } from '../screenshot';
 import { submitReport } from '../submit';
+import { ApiError } from '../transport';
+import { isLifecycleTerminated, transitionToTerminated } from '../lifecycle';
 import { REPORTER_STYLES } from './styles';
 import { mountEditor } from './editor';
+import { renderTerminated } from './terminated';
 
 const HOST_ID = 'issuetracker-reporter';
 let active = false;
@@ -27,24 +30,41 @@ export async function openReporter(runtime: Runtime): Promise<void> {
   if (typeof document === 'undefined') return;
   active = true;
 
+  const mountShadow = (): { shadow: ShadowRoot; teardown: () => void } => {
+    const host = document.createElement('div');
+    host.id = HOST_ID;
+    Object.assign(host.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483647',
+    });
+    const shadow = host.attachShadow({ mode: 'closed' });
+    document.body.appendChild(host);
+    return {
+      shadow,
+      teardown: () => {
+        host.remove();
+        active = false;
+      },
+    };
+  };
+
+  // ADR-0003 Decision 9 pre-flight gate. When the SDK has been
+  // terminated, every trigger that lands here shows the terminal
+  // message instead of the report form — no retry, no error code,
+  // no link back to our service. Skip the screenshot capture too:
+  // no form will be shown to attach it to.
+  if (isLifecycleTerminated()) {
+    const { shadow, teardown } = mountShadow();
+    renderTerminated(shadow, teardown);
+    return;
+  }
+
   // Capture BEFORE the reporter UI is in the DOM, otherwise we'd
   // screenshot our own overlay.
   const screenshot = await captureScreenshot();
 
-  const host = document.createElement('div');
-  host.id = HOST_ID;
-  Object.assign(host.style, {
-    position: 'fixed',
-    inset: '0',
-    zIndex: '2147483647',
-  });
-  const shadow = host.attachShadow({ mode: 'closed' });
-  document.body.appendChild(host);
-
-  const teardown = () => {
-    host.remove();
-    active = false;
-  };
+  const { shadow, teardown } = mountShadow();
 
   const draft: Draft = {
     title: '',
@@ -238,6 +258,14 @@ function renderReportForm(
       });
       onClose();
     } catch (e) {
+      // ADR-0003 Decision 9: non-recoverable failures flip the SDK
+      // into one-way TERMINATED. The user sees this submit's error
+      // message in the current form; the next trigger will hit the
+      // pre-flight gate in openReporter() and surface the terminal
+      // message.
+      if (e instanceof ApiError && e.details && !e.details.recoverable) {
+        transitionToTerminated(e.details.error, runtime.onConfigurationError);
+      }
       sendBtn.disabled = false;
       sendBtn.textContent = 'Send report';
       errEl.textContent = (e as Error).message ?? 'Failed to send report';
