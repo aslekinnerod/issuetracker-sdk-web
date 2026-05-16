@@ -259,12 +259,14 @@ function renderReportForm(
       onClose();
     } catch (e) {
       // ADR-0003 Decision 9: non-recoverable failures flip the SDK
-      // into one-way TERMINATED. The user sees this submit's error
-      // message in the current form; the next trigger will hit the
-      // pre-flight gate in openReporter() and surface the terminal
-      // message.
+      // into one-way TERMINATED. Swap the form for the terminal view
+      // in-place so the user lands on the authoritative end-state
+      // immediately, rather than seeing a generic error they cannot
+      // retry past.
       if (e instanceof ApiError && e.details && !e.details.recoverable) {
         transitionToTerminated(e.details.error, runtime.onConfigurationError);
+        renderTerminated(shadow, onClose);
+        return;
       }
       sendBtn.disabled = false;
       sendBtn.textContent = 'Send report';
