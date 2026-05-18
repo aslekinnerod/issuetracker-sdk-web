@@ -37,6 +37,25 @@ That's it. Triggers (all enabled by default, all configurable):
 
 The SDK talks to Issuetracker's hosted backend — there is no endpoint to configure. Staging-prefixed keys (`it_staging_…`) are routed to the staging environment automatically; everything else hits production.
 
+## First-run onboarding (optional)
+
+Opt-in popover shown on first launch that teaches the user which triggers open the reporter:
+
+```ts
+Issuetracker.configure({
+  apiKey: 'it_xxx…',
+  showOnboarding: true,
+});
+```
+
+Shown once per install (persisted in `localStorage`). Only renders tiles for triggers that are actually enabled — disable `longPressToReport` / `enableShortcut` / `showFloatingWidget` and that tile drops out. If none are enabled, the popover is skipped entirely.
+
+Re-present from your own settings UI ("Show introduction again"):
+
+```ts
+Issuetracker.showOnboarding();
+```
+
 ## Manual trigger
 
 ```ts

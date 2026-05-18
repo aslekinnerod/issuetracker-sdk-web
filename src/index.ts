@@ -6,9 +6,15 @@ import { installLifecycle } from './lifecycle';
 import { installShortcut } from './triggers/shortcut';
 import { installLongPress } from './triggers/long-press';
 import { installFloatingWidget } from './triggers/widget';
+import { presentOnboardingIfNeeded, presentOnboardingForced } from './onboarding';
 import { openReporter } from './ui/reporter';
 
 let runtime: Runtime | null = null;
+let enabledTriggers = {
+  longPressEnabled: false,
+  enableShortcut: false,
+  enableFloatingWidget: false,
+};
 
 type Defaults = Required<Omit<ConfigureOptions, 'onConfigurationError'>> &
   Pick<ConfigureOptions, 'onConfigurationError'>;
@@ -16,6 +22,7 @@ type Defaults = Required<Omit<ConfigureOptions, 'onConfigurationError'>> &
 function applyDefaults(opts: ConfigureOptions): Defaults {
   return {
     apiKey: opts.apiKey,
+    showOnboarding: opts.showOnboarding ?? false,
     enableShortcut: opts.enableShortcut ?? true,
     longPressToReport: opts.longPressToReport ?? true,
     showFloatingWidget: opts.showFloatingWidget ?? true,
@@ -56,6 +63,29 @@ export const Issuetracker = {
     if (opts.enableShortcut) installShortcut(() => Issuetracker.report());
     if (opts.longPressToReport) installLongPress(() => Issuetracker.report());
     if (opts.showFloatingWidget) installFloatingWidget(() => Issuetracker.report());
+    // Capture the enabled-triggers snapshot for the onboarding view
+    // and any later showOnboarding() call, so a single source of
+    // truth governs both runtime behaviour and onboarding content.
+    enabledTriggers = {
+      longPressEnabled: opts.longPressToReport,
+      enableShortcut: opts.enableShortcut,
+      enableFloatingWidget: opts.showFloatingWidget,
+    };
+    if (opts.showOnboarding) {
+      // Defer to the next tick so the host app's own render pass
+      // finishes mounting before we attach the popover host element.
+      setTimeout(() => {
+        presentOnboardingIfNeeded({
+          shakeEnabled: false, // web has no shake — accelerometer
+                               // access in browsers is gated behind
+                               // permission prompts not worth the UX
+                               // cost for a bug-reporter
+          longPressEnabled: enabledTriggers.longPressEnabled,
+          enableShortcut: enabledTriggers.enableShortcut,
+          enableFloatingWidget: enabledTriggers.enableFloatingWidget,
+        });
+      }, 0);
+    }
   },
 
   /** Programmatic trigger — useful for in-app "report a bug" buttons. */
@@ -66,6 +96,27 @@ export const Issuetracker = {
       return;
     }
     void openReporter(runtime);
+  },
+
+  /**
+   * Re-presents the onboarding popover regardless of whether it has
+   * been shown before on this install. Intended for a "Show
+   * introduction again"-style entry in the host app's own settings
+   * screen. Calling this with no triggers enabled is a no-op.
+   * Must be called after `configure(...)`.
+   */
+  showOnboarding(): void {
+    if (!runtime) {
+      // eslint-disable-next-line no-console
+      console.warn('[Issuetracker] showOnboarding() called before configure()');
+      return;
+    }
+    presentOnboardingForced({
+      shakeEnabled: false,
+      longPressEnabled: enabledTriggers.longPressEnabled,
+      enableShortcut: enabledTriggers.enableShortcut,
+      enableFloatingWidget: enabledTriggers.enableFloatingWidget,
+    });
   },
 
   /** Skip the "What should we call you?" prompt. Safe pre-configure. */

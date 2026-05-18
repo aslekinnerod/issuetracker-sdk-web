@@ -26,6 +26,17 @@ export function resolveEndpoint(apiKey: string): string {
 
 export interface ConfigureOptions {
   apiKey: string;
+  /**
+   * If `true`, presents a one-time popover on first launch teaching
+   * the user which gestures and shortcuts trigger the reporter — only
+   * the triggers actually enabled are rendered. Persisted in
+   * `localStorage` so the popover never appears twice on the same
+   * browser/install, unless the host app calls
+   * `Issuetracker.showOnboarding()` explicitly. If no triggers are
+   * enabled the popover is silently skipped.
+   * Defaults to `false` so existing integrations are unaffected.
+   */
+  showOnboarding?: boolean;
   /** Cmd/Ctrl + Shift + B keyboard shortcut. Web-only. */
   enableShortcut?: boolean;
   /**
