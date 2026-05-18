@@ -1,5 +1,23 @@
 import type { SdkErrorReason } from './errors';
 
+/**
+ * Strings shown when the SDK has been terminated and a test-cohort
+ * user opens the reporting surface. ADR-0003 Decision 9 mandates a
+ * localised terminal message; English is the built-in default, and
+ * host apps may inject translations via `configure({ terminatedUI })`.
+ *
+ * Each field is optional — fields the host doesn't override fall back
+ * to English. A missing entire object falls back to all-English.
+ */
+export interface TerminatedUiStrings {
+  /** Big headline. Default: "Bug reporting is no longer available." */
+  title?: string;
+  /** One-line follow-up. Default: "Contact your team." */
+  subtitle?: string;
+  /** Close-button label. Default: "Close". */
+  closeLabel?: string;
+}
+
 export interface Runtime {
   apiKey: string;
   endpoint: string;
@@ -7,6 +25,7 @@ export interface Runtime {
   // here (rather than in lifecycle state) because it's a configure-
   // time setting that the user owns; the store is the state machine.
   onConfigurationError?: (reason: SdkErrorReason) => void;
+  terminatedUI?: TerminatedUiStrings;
 }
 
 // Routing is derived from the key prefix so integrators never see
@@ -59,6 +78,12 @@ export interface ConfigureOptions {
    * `configure()` (typically a page reload). See ADR-0003 Decision 9.
    */
   onConfigurationError?: (reason: SdkErrorReason) => void;
+  /**
+   * Overrides for the TERMINATED-state UI text. Useful for host apps
+   * that ship in non-English locales — the SDK's built-in defaults
+   * are English. Any field left undefined falls back to the default.
+   */
+  terminatedUI?: TerminatedUiStrings;
 }
 
 export type IssueReportType = 'bug' | 'task' | 'story';

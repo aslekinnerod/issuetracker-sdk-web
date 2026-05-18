@@ -16,8 +16,8 @@ let enabledTriggers = {
   enableFloatingWidget: false,
 };
 
-type Defaults = Required<Omit<ConfigureOptions, 'onConfigurationError'>> &
-  Pick<ConfigureOptions, 'onConfigurationError'>;
+type Defaults = Required<Omit<ConfigureOptions, 'onConfigurationError' | 'terminatedUI'>> &
+  Pick<ConfigureOptions, 'onConfigurationError' | 'terminatedUI'>;
 
 function applyDefaults(opts: ConfigureOptions): Defaults {
   return {
@@ -28,6 +28,7 @@ function applyDefaults(opts: ConfigureOptions): Defaults {
     showFloatingWidget: opts.showFloatingWidget ?? true,
     enableCrashReporting: opts.enableCrashReporting ?? true,
     onConfigurationError: opts.onConfigurationError,
+    terminatedUI: opts.terminatedUI,
   };
 }
 
@@ -48,6 +49,7 @@ export const Issuetracker = {
       apiKey: opts.apiKey,
       endpoint: resolveEndpoint(opts.apiKey),
       onConfigurationError: opts.onConfigurationError,
+      terminatedUI: opts.terminatedUI,
     };
     // Rehydrate any prior TERMINATED state from localStorage before
     // wiring triggers, so the pre-flight gate in openReporter() is
@@ -139,5 +141,5 @@ export const Issuetracker = {
   },
 };
 
-export type { ConfigureOptions, IssueReportType } from './runtime';
+export type { ConfigureOptions, IssueReportType, TerminatedUiStrings } from './runtime';
 export type { SdkErrorReason } from './errors';

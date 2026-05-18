@@ -56,7 +56,7 @@ export async function openReporter(runtime: Runtime): Promise<void> {
   // no form will be shown to attach it to.
   if (isLifecycleTerminated()) {
     const { shadow, teardown } = mountShadow();
-    renderTerminated(shadow, teardown);
+    renderTerminated(shadow, teardown, runtime.terminatedUI);
     return;
   }
 
@@ -265,7 +265,7 @@ function renderReportForm(
       // retry past.
       if (e instanceof ApiError && e.details && !e.details.recoverable) {
         transitionToTerminated(e.details.error, runtime.onConfigurationError);
-        renderTerminated(shadow, onClose);
+        renderTerminated(shadow, onClose, runtime.terminatedUI);
         return;
       }
       sendBtn.disabled = false;
