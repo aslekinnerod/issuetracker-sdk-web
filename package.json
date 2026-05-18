@@ -23,15 +23,18 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "example": "vite serve example"
   },
   "dependencies": {
     "html2canvas": "^1.4.1"
   },
   "devDependencies": {
+    "happy-dom": "^15.7.4",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^2.1.5"
   },
   "engines": {
     "node": ">=18"
