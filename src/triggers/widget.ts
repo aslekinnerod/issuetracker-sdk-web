@@ -1,45 +1,50 @@
 const HOST_ID = 'issuetracker-floating-widget';
-const HIDDEN_KEY = 'io.issuetracker.sdk.widget.hidden';
+const VISIBLE_KEY = 'io.issuetracker.sdk.widget.visible';
 let installed = false;
 let hostEl: HTMLElement | null = null;
 
-function isHidden(): boolean {
+function isVisible(): boolean {
   try {
     return typeof window !== 'undefined'
-      && window.localStorage?.getItem(HIDDEN_KEY) === '1';
+      && window.localStorage?.getItem(VISIBLE_KEY) === '1';
   } catch {
     return false;
   }
 }
 
-function setHidden(hidden: boolean): void {
+function setVisible(visible: boolean): void {
   try {
-    if (hidden) window.localStorage?.setItem(HIDDEN_KEY, '1');
-    else window.localStorage?.removeItem(HIDDEN_KEY);
+    if (visible) window.localStorage?.setItem(VISIBLE_KEY, '1');
+    else window.localStorage?.removeItem(VISIBLE_KEY);
   } catch {
     /* private-mode storage unavailable */
   }
 }
 
 function applyVisibility(): void {
-  if (hostEl) hostEl.style.display = isHidden() ? 'none' : '';
+  if (hostEl) hostEl.style.display = isVisible() ? '' : 'none';
 }
 
 /**
- * Bottom-right floating button. Always-visible fallback trigger so
- * users on environments where shake/shortcut don't work still have a
- * way in. Rendered in a closed shadow root so host-page CSS can't
- * bleed in.
+ * Bottom-right floating button. Hidden by default — host apps that
+ * want it always-on should document the hotkey for their users, or
+ * promote it onto a fixed UI element of their own. The hotkey-driven
+ * model keeps the SDK out of the way until someone explicitly asks
+ * for it, mirroring how the iOS/Android shake gesture works on those
+ * platforms.
  *
- * Press Cmd/Ctrl + Alt + T to toggle visibility — useful when the
- * button overlaps real UI on a specific screen. The hidden flag is
+ * Press Cmd/Ctrl + Alt + T to toggle visibility. The visible flag is
  * persisted in localStorage so the choice survives reloads. Console
- * logs the shortcut on hide so users who forget it can find their way
- * back.
+ * logs the shortcut once at install-time so devs integrating the SDK
+ * see how to bring the button up; end users learn it from the host
+ * app's docs.
  */
 export function installFloatingWidget(onTrigger: () => void): void {
   if (installed || typeof document === 'undefined') return;
   installed = true;
+
+  // eslint-disable-next-line no-console
+  console.info('[Issuetracker] Bug button hidden. Press Cmd/Ctrl+Alt+T to show.');
 
   const mount = () => {
     if (document.getElementById(HOST_ID)) return;
@@ -83,10 +88,10 @@ export function installFloatingWidget(onTrigger: () => void): void {
     // the same physical key.
     if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT') {
       e.preventDefault();
-      const next = !isHidden();
-      setHidden(next);
+      const next = !isVisible();
+      setVisible(next);
       applyVisibility();
-      if (next) {
+      if (!next) {
         // eslint-disable-next-line no-console
         console.info('[Issuetracker] Bug button hidden. Press Cmd/Ctrl+Alt+T to show.');
       }
