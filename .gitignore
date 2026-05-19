@@ -4,3 +4,8 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Local env files — sample app reads VITE_ISSUETRACKER_API_KEY from
+# example/.env.local. Keeps secrets out of git.
+.env.local
+.env.*.local

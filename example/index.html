@@ -3,63 +3,330 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Issuetracker SDK Web — Example</title>
+    <title>Issuetracker SDK demo</title>
     <style>
+      :root {
+        --bg: #f7f7f9;
+        --card: #eef0f3;
+        --fg: #1f2937;
+        --muted: #6b7280;
+        --border: #d1d5db;
+        --primary: #1f2937;
+        --primary-fg: #ffffff;
+        --danger: #dc2626;
+      }
+      * { box-sizing: border-box; }
       body {
-        font: 14px system-ui, sans-serif;
-        padding: 2rem;
-        max-width: 600px;
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 16px;
+        max-width: 640px;
         margin: 0 auto;
-        color: #1f2937;
+        color: var(--fg);
+        background: var(--bg);
       }
-      h1 { margin-bottom: 4px; }
-      kbd {
-        background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
-        border: 1px solid #d1d5db; font-family: ui-monospace, monospace;
+      h1 {
+        font-size: 20px;
+        margin: 12px 0;
       }
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+      .card-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .card-subtitle {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+      .card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .row { display: flex; gap: 8px; align-items: center; }
+      .row.between { justify-content: space-between; }
+      .row > button, .row > input { flex: 1; }
+      .muted { font-size: 12px; color: var(--muted); }
       button {
-        margin: 4px; padding: 8px 14px; cursor: pointer;
-        border: 1px solid #d1d5db; background: white; border-radius: 6px;
+        padding: 10px 14px;
+        font: inherit;
+        font-weight: 600;
         font-size: 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: white;
+        color: var(--fg);
       }
-      button:hover { background: #f9fafb; }
-      .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
+      button:hover:not(:disabled) { background: #f9fafb; }
+      button.primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+        border-color: var(--primary);
+      }
+      button.primary:hover:not(:disabled) { background: #111827; }
+      button.danger {
+        color: var(--danger);
+      }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      input[type="text"] {
+        padding: 10px 12px;
+        font: inherit;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: white;
+        color: var(--fg);
+        width: 100%;
+      }
+      /* Toggle */
+      .toggle { display: inline-flex; align-items: center; gap: 8px; }
+      .toggle input { width: 36px; height: 20px; appearance: none;
+        background: #d1d5db; border-radius: 10px; position: relative;
+        cursor: pointer; transition: background 120ms; }
+      .toggle input::before {
+        content: ''; position: absolute; top: 2px; left: 2px;
+        width: 16px; height: 16px; border-radius: 50%;
+        background: white; transition: transform 120ms;
+      }
+      .toggle input:checked { background: var(--primary); }
+      .toggle input:checked::before { transform: translateX(16px); }
       .demo-content {
-        margin-top: 24px; padding: 16px; background: #f3f4f6;
-        border-radius: 8px; border: 1px dashed #d1d5db;
+        margin-top: 16px; padding: 16px; background: white;
+        border-radius: 8px; border: 1px dashed var(--border);
       }
     </style>
   </head>
   <body>
-    <h1>Issuetracker SDK</h1>
-    <p>Triggers (all enabled by default):</p>
-    <ul>
-      <li>Desktop: <kbd>Cmd/Ctrl + Shift + B</kbd></li>
-      <li>Mobile: two-finger long-press 3 seconds</li>
-      <li>Universal: floating button (bottom-right)</li>
-      <li>Programmatic: <code>Issuetracker.report()</code></li>
-    </ul>
+    <h1>Issuetracker SDK demo</h1>
 
-    <div class="grid">
-      <button onclick="Issuetracker.report()">Report a bug</button>
-      <button onclick="Issuetracker.recordAction('button_tapped')">Record breadcrumb</button>
-      <button onclick="Issuetracker.identify('Alice Andersen')">Identify as Alice</button>
-      <button onclick="Issuetracker.clearIdentity()">Clear identity</button>
-      <button onclick="Issuetracker.testCrash()">Throw test error</button>
+    <div class="card">
+      <div class="card-title">Lifecycle</div>
+      <p class="card-subtitle" id="lifecycle-subtitle">
+        Listening for onConfigurationError. Nothing fired yet.
+      </p>
+      <div class="card-body">
+        <button id="reset-last-error">Reset last error</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Reporting</div>
+      <p class="card-subtitle">
+        Cmd/Ctrl + Shift + B, two-finger long-press (touch), floating widget
+        (bottom-right), or tap the button.
+      </p>
+      <div class="card-body">
+        <button class="primary" id="report">Report a bug</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Identity</div>
+      <p class="card-subtitle">
+        Skips the in-form name prompt and stamps every report.
+      </p>
+      <div class="card-body">
+        <input
+          type="text"
+          id="name"
+          placeholder="Display name (e.g. Kari Nordmann)"
+        />
+        <div class="row">
+          <button class="primary" id="identify-save">Save</button>
+          <button id="identify-clear">Clear</button>
+        </div>
+        <p class="muted" id="identity-feedback" hidden></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Breadcrumbs</div>
+      <p class="card-subtitle">Last 5 actions ride along with every report.</p>
+      <div class="card-body">
+        <div class="row">
+          <button id="crumb-viewed">viewed_home</button>
+          <button id="crumb-tapped">tapped_button</button>
+        </div>
+        <p class="muted" id="recent-crumbs" hidden></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">TERMINATED-UI i18n</div>
+      <p class="card-subtitle">
+        When ON, the SDK shows the terminal screen in Norwegian. Applied
+        immediately — the web SDK accepts a new
+        <code>terminatedUI</code> on every <code>configure()</code> call.
+      </p>
+      <div class="card-body">
+        <div class="row between">
+          <span>Norwegian strings</span>
+          <label class="toggle">
+            <input type="checkbox" id="use-norwegian" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Destructive</div>
+      <p class="card-subtitle">
+        Test the crash-reporting flow. Throws synchronously; the SDK's
+        crash handler picks it up and queues a report on the next load.
+      </p>
+      <div class="card-body">
+        <button class="danger" id="test-crash">Throw test error</button>
+      </div>
     </div>
 
     <div class="demo-content">
-      <h3>Test content</h3>
-      <p>The screenshot capture targets <code>document.body</code>, so this card should appear in any screenshot you take.</p>
-      <p>Try drawing on it in the editor.</p>
+      <strong>Test content</strong>
+      <p class="muted">
+        The screenshot capture targets <code>document.body</code>, so this
+        card appears in any screenshot you take. Try drawing on it in the
+        annotation editor.
+      </p>
     </div>
 
     <script type="module">
       import { Issuetracker } from '/src/index.ts';
       window.Issuetracker = Issuetracker;
-      Issuetracker.configure({
-        apiKey: 'it_staging_replace_with_real_key_from_admin_ui',
-      });
+
+      // API key comes from Vite's env handling. Drop a file at
+      //   sdk-web/example/.env.local
+      // with the single line
+      //   VITE_ISSUETRACKER_API_KEY=it_staging_xxxxxxxxxxxxxxxxxx
+      // The .env.local file is gitignored by default. Skipping it
+      // falls back to the placeholder, which the SDK rejects as
+      // invalid_api_key — useful for demoing the TERMINATED flow.
+      const apiKey =
+        import.meta.env.VITE_ISSUETRACKER_API_KEY ||
+        'it_staging_REPLACE_ME';
+
+      const PREF_USE_NORWEGIAN = 'issuetracker.sample.useNorwegianTerminatedUI';
+      const PREF_LAST_ERROR = 'issuetracker.sample.lastConfigError';
+      const PREF_LAST_ERROR_AT = 'issuetracker.sample.lastConfigErrorAt';
+
+      const NORWEGIAN_STRINGS = {
+        title: 'Feilrapportering er ikke lenger tilgjengelig.',
+        subtitle: 'Kontakt teamet ditt.',
+        closeLabel: 'Lukk',
+      };
+
+      function readBool(key) {
+        return localStorage.getItem(key) === '1';
+      }
+
+      function configureSdk() {
+        const useNorwegian = readBool(PREF_USE_NORWEGIAN);
+        Issuetracker.configure({
+          apiKey,
+          enableShortcut: true,
+          longPressToReport: true,
+          showFloatingWidget: true,
+          enableCrashReporting: true,
+          onConfigurationError: (reason) => {
+            localStorage.setItem(PREF_LAST_ERROR, reason);
+            localStorage.setItem(PREF_LAST_ERROR_AT, String(Date.now()));
+            renderLifecycleSubtitle();
+          },
+          terminatedUI: useNorwegian ? NORWEGIAN_STRINGS : undefined,
+        });
+      }
+
+      // -- Lifecycle subtitle ------------------------------------
+      function renderLifecycleSubtitle() {
+        const lastError = localStorage.getItem(PREF_LAST_ERROR);
+        const at = Number(localStorage.getItem(PREF_LAST_ERROR_AT)) || 0;
+        const sub = document.getElementById('lifecycle-subtitle');
+        if (!lastError) {
+          sub.textContent =
+            'Listening for onConfigurationError. Nothing fired yet.';
+          return;
+        }
+        const mins = Math.round((Date.now() - at) / 60000);
+        const when = mins < 1 ? 'just now' : `${mins} min ago`;
+        sub.textContent = `Last onConfigurationError: ${lastError} (${when})`;
+      }
+      document.getElementById('reset-last-error').onclick = () => {
+        localStorage.removeItem(PREF_LAST_ERROR);
+        localStorage.removeItem(PREF_LAST_ERROR_AT);
+        renderLifecycleSubtitle();
+      };
+
+      // -- Reporting ---------------------------------------------
+      document.getElementById('report').onclick = () => Issuetracker.report();
+
+      // -- Identity ----------------------------------------------
+      const nameInput = document.getElementById('name');
+      const identityFeedback = document.getElementById('identity-feedback');
+      function setIdentityFeedback(text) {
+        identityFeedback.textContent = text;
+        identityFeedback.hidden = false;
+      }
+      document.getElementById('identify-save').onclick = () => {
+        const v = nameInput.value.trim();
+        if (!v) return;
+        Issuetracker.identify(v);
+        setIdentityFeedback(`Saved "${v}"`);
+      };
+      document.getElementById('identify-clear').onclick = () => {
+        Issuetracker.clearIdentity();
+        nameInput.value = '';
+        setIdentityFeedback('Cleared.');
+      };
+
+      // -- Breadcrumbs -------------------------------------------
+      const recent = [];
+      const recentEl = document.getElementById('recent-crumbs');
+      function recordCrumb(name, metadata) {
+        Issuetracker.recordAction(name, metadata);
+        recent.push(name);
+        while (recent.length > 5) recent.shift();
+        recentEl.textContent = `Recorded: ${recent.join(' → ')}`;
+        recentEl.hidden = false;
+      }
+      document.getElementById('crumb-viewed').onclick = () =>
+        recordCrumb('viewed_home');
+      document.getElementById('crumb-tapped').onclick = () =>
+        recordCrumb('tapped_button', { id: 'settings' });
+
+      // -- i18n toggle -------------------------------------------
+      const useNorwegianEl = document.getElementById('use-norwegian');
+      useNorwegianEl.checked = readBool(PREF_USE_NORWEGIAN);
+      useNorwegianEl.onchange = () => {
+        localStorage.setItem(
+          PREF_USE_NORWEGIAN,
+          useNorwegianEl.checked ? '1' : '0',
+        );
+        // Web SDK supports re-configure — no page reload needed.
+        configureSdk();
+      };
+
+      // -- Destructive -------------------------------------------
+      document.getElementById('test-crash').onclick = () => {
+        if (
+          confirm(
+            'This will throw an uncaught error. The SDK records the crash and queues a report on the next page load. OK to proceed?',
+          )
+        ) {
+          Issuetracker.testCrash();
+        }
+      };
+
+      // -- Boot --------------------------------------------------
+      renderLifecycleSubtitle();
+      configureSdk();
     </script>
   </body>
 </html>
