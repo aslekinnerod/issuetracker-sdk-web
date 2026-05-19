@@ -1,6 +1,6 @@
 {
   "name": "@issuetracker/sdk-web",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Drop-in issue reporter SDK for web apps. Shake-equivalent triggers, screenshot capture, annotation, breadcrumbs, crash detection.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -24,7 +24,8 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "example": "vite serve example"
+    "example": "vite serve example",
+    "prepare": "tsup"
   },
   "dependencies": {
     "html2canvas": "^1.4.1"
