@@ -9,10 +9,11 @@ and file an issue directly into a pre-configured Issuetracker project.
 npm install @issuetracker/sdk-web
 ```
 
-Or via CDN:
+Or via CDN (pin to a semver range so you get patches but not breaking
+changes):
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@issuetracker/sdk-web"></script>
+<script src="https://cdn.jsdelivr.net/npm/@issuetracker/sdk-web@^0.5"></script>
 ```
 
 ## Quickstart
@@ -35,6 +36,22 @@ flow, breadcrumbs, and troubleshooting — see
 ## Requirements
 
 All evergreen browsers (Chrome / Safari / Firefox / Edge, last 2 versions).
+
+## Versioning
+
+Semver. Pre-1.0 the minor bumps for breaking changes; the patch for
+bug fixes and additive features. Pin to `^0.5` to stay on a known
+compatible line.
+
+## Releasing (maintainers)
+
+1. Bump `version` in `package.json`.
+2. Commit: `release: x.y.z`.
+3. Tag and push: `git tag x.y.z && git push --tags`.
+
+The `publish.yml` workflow verifies the tag matches `package.json`,
+runs typecheck + tests + build, then publishes to npm with provenance
+via GitHub OIDC.
 
 ## License
 

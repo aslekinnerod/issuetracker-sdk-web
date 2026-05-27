@@ -1,7 +1,24 @@
 {
   "name": "@issuetracker/sdk-web",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Drop-in issue reporter SDK for web apps. Shake-equivalent triggers, screenshot capture, annotation, breadcrumbs, crash detection.",
+  "keywords": [
+    "issue-tracker",
+    "feedback",
+    "bug-report",
+    "screenshot",
+    "annotation",
+    "sdk",
+    "issuetracker"
+  ],
+  "homepage": "https://docs.issuetracker.no/sdk/web",
+  "bugs": {
+    "url": "https://github.com/aslekinnerod/issuetracker-sdk-web/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aslekinnerod/issuetracker-sdk-web.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -40,5 +57,9 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

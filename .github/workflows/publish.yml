@@ -1,0 +1,55 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      # Match semver tags (0.5.6, 1.0.0, 1.0.0-rc.1). The version
+      # in package.json must match the tag before pushing — see
+      # the verify step below.
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    # id-token is required for OIDC trusted publishing + provenance.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify package.json version matches tag
+        if: github.event_name == 'push'
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          pkg_version=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$pkg_version" ]; then
+            echo "::error::Tag '$tag' does not match package.json version '$pkg_version'"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Publish to npm
+        # NODE_AUTH_TOKEN is only for the bootstrap publish (0.5.6),
+        # before the npm Trusted Publisher is connected. Once
+        # trusted publishing is active for 0.5.7+, remove the env
+        # block AND delete the NPM_TOKEN secret from the
+        # npm-publish environment.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
