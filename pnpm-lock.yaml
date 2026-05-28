@@ -7,14 +7,13 @@ settings:
 importers:
 
   .:
-    dependencies:
-      html2canvas:
-        specifier: ^1.4.1
-        version: 1.4.1
     devDependencies:
       happy-dom:
         specifier: ^15.7.4
         version: 15.11.7
+      html2canvas:
+        specifier: ^1.4.1
+        version: 1.4.1
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.14)(typescript@5.9.3)
