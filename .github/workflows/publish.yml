@@ -39,6 +39,12 @@ jobs:
             exit 1
           fi
 
+      # Node 22 ships npm 10, which only uses the OIDC id-token for
+      # provenance signing — not for publish auth. OIDC trusted
+      # publishing needs npm >= 11.5.1, so upgrade before publishing.
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
