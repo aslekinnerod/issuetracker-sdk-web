@@ -7,29 +7,45 @@
  * document. A user reporting "this dropdown is broken" wants the
  * dropdown in the screenshot, not 3000 px of off-screen content.
  *
- * Loaded via dynamic import so the html2canvas bundle (~140 KB) only
- * downloads when the user actually triggers a report. Modern bundlers
- * code-split it; for the IIFE bundle it's inlined.
+ * html2canvas is bundled into our own dist (see tsup noExternal) and
+ * loaded via dynamic import, so the ~140 KB chunk only downloads when
+ * the user actually triggers a report.
  */
 export async function captureScreenshot(): Promise<string | null> {
   if (typeof document === 'undefined') return null;
   try {
     const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(document.body, {
-      // Crop to the visible viewport. Without this, html2canvas
-      // captures the whole document.body — including everything
-      // scrolled out of view.
-      x: window.scrollX,
-      y: window.scrollY,
-      width: window.innerWidth,
-      height: window.innerHeight,
+    // Render the full page, then crop to the viewport ourselves.
+    // html2canvas' own x/y/width/height crop options normalize scroll
+    // in the cloned document, so cropping at scrollY lands on the wrong
+    // region — capturing the top of the page regardless of scroll.
+    // Rendering everything and cropping via drawImage with the live
+    // scroll offset reliably yields exactly what the user sees.
+    // scale: 1 keeps retina screens from producing multi-MB images
+    // that breach the callable payload limit.
+    const full = await html2canvas(document.body, {
       logging: false,
       useCORS: true,
-      // Cap at 1x device pixel ratio so retina screens don't produce
-      // multi-MB screenshots that breach the callable payload limit.
       scale: 1,
     });
-    return canvas.toDataURL('image/jpeg', 0.85);
+
+    const view = document.createElement('canvas');
+    view.width = window.innerWidth;
+    view.height = window.innerHeight;
+    const ctx = view.getContext('2d');
+    if (!ctx) return full.toDataURL('image/jpeg', 0.85);
+    ctx.drawImage(
+      full,
+      window.scrollX,
+      window.scrollY,
+      window.innerWidth,
+      window.innerHeight,
+      0,
+      0,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    return view.toDataURL('image/jpeg', 0.85);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[Issuetracker] screenshot capture failed', e);
