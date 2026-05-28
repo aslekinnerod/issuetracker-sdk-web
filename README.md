@@ -43,6 +43,35 @@ Semver. Pre-1.0 the minor bumps for breaking changes; the patch for
 bug fixes and additive features. Pin to `^0.5` to stay on a known
 compatible line.
 
+## Upgrading
+
+The SDK is entirely client-side — upgrading never requires changes to
+your API key, `configure()` options, triggers, or any backend. Bump the
+version and redeploy your app.
+
+**npm**
+
+- If your range already allows the new version (e.g. `^0.5.x`), run
+  `npm update @issuetracker/sdk-web` (or `pnpm up` / `yarn up`) to move
+  your lockfile forward — a plain `npm install` won't bump an
+  already-locked version.
+- If you pinned an exact version or installed from a git URL, change the
+  dependency to `^0.5.9` and reinstall.
+
+Then rebuild and redeploy — the fix ships in your client bundle.
+
+**CDN**
+
+- `@^0.5` or `@latest` URLs pick up new patches automatically (edge
+  caches may take a few hours; a cache purge forces it).
+- Exact-pinned URLs (`@0.5.7`) must be changed to the new version.
+
+**0.5.9 — screenshot fixes.** If you added a manual `html2canvas`
+install/import to work around screenshots failing, you can remove it:
+0.5.8+ bundles html2canvas itself. 0.5.9 also fixes screenshots
+capturing the top of the page instead of the scrolled viewport. Both are
+patch upgrades with no API changes.
+
 ## Releasing (maintainers)
 
 1. Bump `version` in `package.json`.
