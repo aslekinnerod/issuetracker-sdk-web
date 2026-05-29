@@ -1,6 +1,6 @@
 {
   "name": "@issuetracker/sdk-web",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "description": "Drop-in issue reporter SDK for web apps. Shake-equivalent triggers, screenshot capture, annotation, breadcrumbs, crash detection.",
   "keywords": [
     "issue-tracker",
