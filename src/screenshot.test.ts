@@ -69,4 +69,34 @@ describe('captureScreenshot', () => {
 
     expect(result).toBeNull();
   });
+
+  it('swaps <video> for a placeholder during capture and restores it after', async () => {
+    setViewport(0, 0, 800, 600);
+    mockViewCanvas();
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    const baselineChildren = document.body.children.length;
+
+    let stateDuringCapture: { videoHidden: boolean; bodyChildren: number } | undefined;
+    const html2canvas = (await import('html2canvas')).default as unknown as ReturnType<typeof vi.fn>;
+    html2canvas.mockImplementationOnce(async () => {
+      stateDuringCapture = {
+        videoHidden: video.style.display === 'none',
+        bodyChildren: document.body.children.length,
+      };
+      return h.fullCanvas;
+    });
+
+    const { captureScreenshot } = await import('./screenshot');
+    await captureScreenshot();
+
+    // During capture the video is hidden and a placeholder sits next to it.
+    expect(stateDuringCapture?.videoHidden).toBe(true);
+    expect(stateDuringCapture?.bodyChildren).toBe(baselineChildren + 1);
+    // Afterwards the DOM is back to how it was.
+    expect(video.style.display).toBe('');
+    expect(document.body.children.length).toBe(baselineChildren);
+
+    document.body.removeChild(video);
+  });
 });

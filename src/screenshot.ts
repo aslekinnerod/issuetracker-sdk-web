@@ -13,6 +13,13 @@
  */
 export async function captureScreenshot(): Promise<string | null> {
   if (typeof document === 'undefined') return null;
+  // html2canvas can't render <video> and lays it out larger than its CSS
+  // box, ignoring any overflow:hidden clipping on the container — which
+  // pushes everything below the video down, so the crop misses the
+  // viewport. Swap each video for a placeholder that occupies the exact
+  // same box, capture, then restore. Verified to bring the offset to 0
+  // on a real video-hero page.
+  const swaps = swapVideosForPlaceholders();
   try {
     const { default: html2canvas } = await import('html2canvas');
 
@@ -59,5 +66,58 @@ export async function captureScreenshot(): Promise<string | null> {
     // eslint-disable-next-line no-console
     console.warn('[Issuetracker] screenshot capture failed', e);
     return null;
+  } finally {
+    restoreVideos(swaps);
   }
+}
+
+interface VideoSwap {
+  video: HTMLVideoElement;
+  placeholder: HTMLElement;
+  prevDisplay: string;
+}
+
+// Box-geometry properties copied onto the placeholder so it occupies the
+// identical layout box as the video it stands in for (including absolute
+// positioning and transforms).
+const PLACEHOLDER_PROPS = [
+  'position',
+  'top',
+  'left',
+  'right',
+  'bottom',
+  'width',
+  'height',
+  'margin',
+  'transform',
+  'z-index',
+  'border-radius',
+];
+
+function swapVideosForPlaceholders(): VideoSwap[] {
+  const swaps: VideoSwap[] = [];
+  document.querySelectorAll('video').forEach((video) => {
+    const parent = video.parentNode;
+    if (!parent) return;
+    const cs = getComputedStyle(video);
+    const placeholder = document.createElement('div');
+    PLACEHOLDER_PROPS.forEach((p) => placeholder.style.setProperty(p, cs.getPropertyValue(p)));
+    if (video.poster) {
+      placeholder.style.backgroundImage = `url("${video.poster}")`;
+      placeholder.style.backgroundSize = cs.getPropertyValue('object-fit') === 'contain' ? 'contain' : 'cover';
+      placeholder.style.backgroundPosition = 'center';
+    }
+    const prevDisplay = video.style.display;
+    video.style.display = 'none';
+    parent.insertBefore(placeholder, video);
+    swaps.push({ video, placeholder, prevDisplay });
+  });
+  return swaps;
+}
+
+function restoreVideos(swaps: VideoSwap[]): void {
+  swaps.forEach(({ video, placeholder, prevDisplay }) => {
+    placeholder.remove();
+    video.style.display = prevDisplay;
+  });
 }
