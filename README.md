@@ -1,5 +1,12 @@
 # Issuetracker SDK for Web
 
+[![npm](https://img.shields.io/npm/v/@issuetracker/sdk-web.svg)](https://www.npmjs.com/package/@issuetracker/sdk-web)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@issuetracker/sdk-web.svg?label=min%2Bgzip)](https://bundlephobia.com/package/@issuetracker/sdk-web)
+[![types](https://img.shields.io/npm/types/@issuetracker/sdk-web.svg)](https://www.npmjs.com/package/@issuetracker/sdk-web)
+[![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](https://www.npmjs.com/package/@issuetracker/sdk-web?activeTab=dependencies)
+[![provenance](https://img.shields.io/badge/provenance-attested-success.svg)](https://www.npmjs.com/package/@issuetracker/sdk-web)
+[![license](https://img.shields.io/npm/l/@issuetracker/sdk-web.svg)](LICENSE)
+
 Drop-in issue reporter for web apps. Capture a screenshot, annotate it,
 and file an issue directly into a pre-configured Issuetracker project.
 
@@ -66,11 +73,10 @@ Then rebuild and redeploy — the fix ships in your client bundle.
   caches may take a few hours; a cache purge forces it).
 - Exact-pinned URLs (`@0.5.7`) must be changed to the new version.
 
-**0.5.9 — screenshot fixes.** If you added a manual `html2canvas`
-install/import to work around screenshots failing, you can remove it:
-0.5.8+ bundles html2canvas itself. 0.5.9 also fixes screenshots
-capturing the top of the page instead of the scrolled viewport. Both are
-patch upgrades with no API changes.
+If you added a manual `html2canvas` install/import in earlier versions
+to work around screenshots failing, you can remove it — 0.5.8 onward
+bundles `html2canvas` itself. See the [CHANGELOG](CHANGELOG.md) for the
+full history of fixes and per-version notes.
 
 ## Releasing (maintainers)
 
