@@ -4,6 +4,17 @@ All notable changes to `@issuetracker/sdk-web` are documented here.
 This project follows [Semantic Versioning](https://semver.org/) and the
 format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.13] - 2026-05-31
+
+### Added
+
+- Badge row at the top of the README (npm version, bundle size, types,
+  zero dependencies, provenance, license).
+- This `CHANGELOG.md`, backfilled for 0.5.6 onward and now shipped with
+  the published package.
+
+No code changes.
+
 ## [0.5.12] - 2026-05-31
 
 ### Fixed
