@@ -16,7 +16,9 @@ export type SdkErrorReason =
   | 'workspace_suspended'
   | 'invalid_api_key'
   | 'quota_exceeded'
-  | 'transient';
+  | 'transient'
+  | 'tester_attestation_required'
+  | 'tester_token_invalid';
 
 const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
   'project_deleted',
@@ -26,6 +28,8 @@ const SDK_ERROR_REASONS: ReadonlySet<string> = new Set<SdkErrorReason>([
   'invalid_api_key',
   'quota_exceeded',
   'transient',
+  'tester_attestation_required',
+  'tester_token_invalid',
 ]);
 
 const RECOVERABLE_REASONS: ReadonlySet<SdkErrorReason> = new Set([
@@ -33,8 +37,27 @@ const RECOVERABLE_REASONS: ReadonlySet<SdkErrorReason> = new Set([
   'transient',
 ]);
 
+// Tester-gating rejections (ADR-0005) are non-recoverable — retrying
+// the same request cannot succeed — but they are NOT terminal: the
+// project is alive, the key is valid, only this install lacks (valid)
+// attestation. The SDK must never flip to TERMINATED on them.
+const NON_TERMINAL_REASONS: ReadonlySet<SdkErrorReason> = new Set([
+  'quota_exceeded',
+  'transient',
+  'tester_attestation_required',
+  'tester_token_invalid',
+]);
+
 export function isSdkErrorRecoverable(reason: SdkErrorReason): boolean {
   return RECOVERABLE_REASONS.has(reason);
+}
+
+export function isSdkErrorTerminal(reason: SdkErrorReason): boolean {
+  return !NON_TERMINAL_REASONS.has(reason);
+}
+
+export function isTesterGatingReason(reason: SdkErrorReason): boolean {
+  return reason === 'tester_attestation_required' || reason === 'tester_token_invalid';
 }
 
 export function isSdkErrorReason(value: unknown): value is SdkErrorReason {

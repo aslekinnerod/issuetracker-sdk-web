@@ -50,6 +50,7 @@ export function installFloatingWidget(onTrigger: () => void): void {
     if (document.getElementById(HOST_ID)) return;
     const host = document.createElement('div');
     host.id = HOST_ID;
+    host.lang = 'en'; // SDK copy is English regardless of host page language
     Object.assign(host.style, {
       position: 'fixed',
       bottom: '16px',
@@ -59,6 +60,8 @@ export function installFloatingWidget(onTrigger: () => void): void {
     const shadow = host.attachShadow({ mode: 'closed' });
     shadow.innerHTML = `
       <style>
+        /* Deliberately px-sized: icon-only 48px circle (no text to scale
+           for WCAG 1.4.4); the "!" glyph is decorative within it. */
         button {
           all: unset;
           width: 48px; height: 48px; border-radius: 50%;
@@ -66,11 +69,15 @@ export function installFloatingWidget(onTrigger: () => void): void {
           display: grid; place-items: center;
           cursor: pointer;
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-          transition: transform 120ms ease;
           font: 600 18px/1 system-ui, sans-serif;
         }
-        button:hover { transform: scale(1.05); }
-        button:active { transform: scale(0.97); }
+        /* "all: unset" strips the UA focus ring — restore it. */
+        button:focus-visible { outline: 2px solid #1577AD; outline-offset: 2px; }
+        @media (prefers-reduced-motion: no-preference) {
+          button { transition: transform 120ms ease; }
+          button:hover { transform: scale(1.05); }
+          button:active { transform: scale(0.97); }
+        }
       </style>
       <button title="Report a bug (Cmd/Ctrl+Alt+T to toggle)" aria-label="Report a bug">!</button>
     `;

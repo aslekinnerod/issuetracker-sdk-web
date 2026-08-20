@@ -1,6 +1,13 @@
 import { REPORTER_STYLES } from './styles';
+import type { ModalFocusManager } from './focus';
 
-const PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5'];
+const PALETTE: { color: string; name: string }[] = [
+  { color: '#E53935', name: 'Red' },
+  { color: '#FB8C00', name: 'Orange' },
+  { color: '#FDD835', name: 'Yellow' },
+  { color: '#43A047', name: 'Green' },
+  { color: '#1E88E5', name: 'Blue' },
+];
 
 interface Stroke {
   color: string;
@@ -13,7 +20,11 @@ interface Stroke {
  * or null on Cancel. Caller is responsible for re-rendering the
  * report form afterwards.
  */
-export function mountEditor(shadow: ShadowRoot, dataUrl: string): Promise<string | null> {
+export function mountEditor(
+  shadow: ShadowRoot,
+  dataUrl: string,
+  focus?: ModalFocusManager,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -30,7 +41,7 @@ export function mountEditor(shadow: ShadowRoot, dataUrl: string): Promise<string
           <div class="toolbar">
             ${PALETTE.map(
               (c, i) => `
-              <div class="swatch ${i === 0 ? 'selected' : ''}" data-color="${c}" style="background:${c};"></div>
+              <button type="button" class="swatch" data-color="${c.color}" aria-label="${c.name}" aria-pressed="${i === 0}" style="background:${c.color};"></button>
             `,
             ).join('')}
             <button class="undo" id="undo" disabled>Undo</button>
@@ -44,7 +55,7 @@ export function mountEditor(shadow: ShadowRoot, dataUrl: string): Promise<string
         return;
       }
       const undoBtn = shadow.getElementById('undo') as HTMLButtonElement;
-      let color = PALETTE[0];
+      let color = PALETTE[0].color;
       const strokes: Stroke[] = [];
       let current: Stroke | null = null;
 
@@ -105,9 +116,10 @@ export function mountEditor(shadow: ShadowRoot, dataUrl: string): Promise<string
 
       shadow.querySelectorAll('.swatch').forEach((sw) => {
         sw.addEventListener('click', () => {
-          color = (sw as HTMLElement).dataset.color ?? PALETTE[0];
-          shadow.querySelectorAll('.swatch').forEach((s) => s.classList.remove('selected'));
-          sw.classList.add('selected');
+          color = (sw as HTMLElement).dataset.color ?? PALETTE[0].color;
+          shadow
+            .querySelectorAll('.swatch')
+            .forEach((s) => s.setAttribute('aria-pressed', String(s === sw)));
         });
       });
 
@@ -121,6 +133,10 @@ export function mountEditor(shadow: ShadowRoot, dataUrl: string): Promise<string
       shadow.getElementById('done')?.addEventListener('click', () => {
         resolve(canvas.toDataURL('image/jpeg', 0.85));
       });
+      // Escape backs out of the editor without discarding the report
+      // draft — the caller re-renders the form, which re-points the
+      // escape handler at the form's own close path.
+      focus?.setEscapeHandler(() => resolve(null));
 
       redraw();
     };

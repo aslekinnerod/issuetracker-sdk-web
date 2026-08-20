@@ -31,9 +31,9 @@ export function renderTerminated(
   shadow.innerHTML = `
     <style>${REPORTER_STYLES}</style>
     <div class="overlay">
-      <div class="sheet">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="it-terminated-title">
         <div class="name-prompt">
-          <h2>${escapeHtml(title)}</h2>
+          <h2 id="it-terminated-title">${escapeHtml(title)}</h2>
           <p>${escapeHtml(subtitle)}</p>
           <div class="name-prompt-actions">
             <button id="close" class="primary">${escapeHtml(closeLabel)}</button>
@@ -42,7 +42,11 @@ export function renderTerminated(
       </div>
     </div>
   `;
-  shadow.getElementById('close')?.addEventListener('click', onClose);
+  const closeBtn = shadow.getElementById('close') as HTMLButtonElement | null;
+  closeBtn?.addEventListener('click', onClose);
+  // Move focus into the dialog — it may replace a form the user was
+  // focused inside of (non-recoverable submit failure path).
+  setTimeout(() => closeBtn?.focus(), 0);
 }
 
 // Defence against host-app strings that might contain markup. The

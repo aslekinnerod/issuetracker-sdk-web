@@ -41,7 +41,7 @@ the five platforms stay comparable.
 | Section | What it exercises | SDK API |
 |---|---|---|
 | **Lifecycle** | Shows the last `onConfigurationError` reason the SDK reported. Has a "Reset" button so you can retry a path that has already fired. | `onConfigurationError` callback on `configure(...)` |
-| **Reporting** | One button programmatically opens the reporter. `Cmd/Ctrl + Shift + B`, two-finger long-press (touch), and the floating widget also trigger it. | `Issuetracker.report()` + `enableShortcut` + `longPressToReport` + `showFloatingWidget` |
+| **Reporting** | One button programmatically opens the reporter. `Cmd/Ctrl + Alt + R` (remappable via `enableShortcut`), two-finger long-press (touch), and the floating widget also trigger it. | `Issuetracker.report()` + `enableShortcut` + `longPressToReport` + `showFloatingWidget` |
 | **Identity** | Sets / clears the display name that stamps every report. | `identify(name)` / `clearIdentity()` |
 | **Breadcrumbs** | Records up to two action breadcrumbs with optional metadata. The most-recent 5 ride along on every report. | `recordAction(name, metadata?)` |
 | **TERMINATED-UI i18n** | Toggle a Norwegian translation of the terminal-state strings. Applied immediately — the web SDK accepts a new `terminatedUI` on every `configure(...)` call. | `terminatedUI: TerminatedUiStrings` on `configure(...)` |

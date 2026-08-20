@@ -3,6 +3,7 @@ import { callFunction, type CreateIssueResult } from './transport';
 import { reporterPayload } from './identity';
 import { snapshotBreadcrumbs } from './breadcrumbs';
 import { collectContext } from './context';
+import { getTesterToken } from './attestation';
 
 export interface ReportDraft {
   title: string;
@@ -27,6 +28,11 @@ export async function submitReport(rt: Runtime, draft: ReportDraft): Promise<Cre
     reporter: reporterPayload(),
   };
   if (draft.description) payload.description = draft.description;
+  // Attach attestation whenever we hold a token — in open mode it
+  // still stamps the report with the tester's identity (ADR-0005
+  // Decision 5); in testers-only mode it's what gets us past ingest.
+  const testerToken = getTesterToken();
+  if (testerToken) payload.testerToken = testerToken;
   if (draft.screenshotDataUrl) {
     const { contentType, base64 } = dataUrlParts(draft.screenshotDataUrl);
     payload.screenshot = {
