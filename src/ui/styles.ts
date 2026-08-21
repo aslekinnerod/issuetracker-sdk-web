@@ -35,7 +35,7 @@ export const REPORTER_STYLES = `
   .body { padding: 16px; overflow-y: auto; }
   label { font-size: 0.8125em; color: #4b5563; display: block; margin-bottom: 4px; }
   input[type=text], textarea {
-    width: 100%; padding: 0.57143em 0.71429em; border: 1px solid #949BA5;
+    width: 100%; padding: 0.57143em 0.71429em; border: 1px solid #8D949E;
     border-radius: 6px; font-size: 0.875em; color: #111827; background: white;
   }
   textarea { resize: vertical; min-height: 80px; font-family: inherit; }
@@ -43,7 +43,7 @@ export const REPORTER_STYLES = `
   .types { display: flex; gap: 8px; margin-bottom: 12px; }
   .types button {
     all: unset; flex: 1; padding: 0.61538em; text-align: center;
-    border: 1px solid #949BA5; border-radius: 6px; cursor: pointer;
+    border: 1px solid #8D949E; border-radius: 6px; cursor: pointer;
     font-size: 0.8125em; color: #374151;
   }
   .types button[aria-pressed="true"] { background: #eff6ff; border-color: #2563eb; color: #1d4ed8; font-weight: 600; }
@@ -92,7 +92,7 @@ export const REPORTER_STYLES = `
   }
   .name-prompt-actions button {
     padding: 0.57143em 1.14286em; border-radius: 6px; font-size: 0.875em; font-weight: 500;
-    cursor: pointer; border: 1px solid #949BA5; background: white; color: #4b5563;
+    cursor: pointer; border: 1px solid #8D949E; background: white; color: #4b5563;
   }
   .name-prompt-actions button.primary { background: #2563eb; color: white; border-color: #2563eb; }
   .name-prompt-actions button.primary[disabled] { background: #9ca3af; border-color: #9ca3af; cursor: not-allowed; }
@@ -111,7 +111,19 @@ export const REPORTER_STYLES = `
   }
   .editor .canvas-wrap {
     flex: 1; display: grid; place-items: center; padding: 8px; min-height: 0;
+    /* Positioning context for the pending highlight-box overlay. */
+    position: relative;
   }
+  /* Pending "Add box" annotation (ISU-38): a focusable DOM overlay so it
+     can be moved/resized with the keyboard before being committed to
+     the bitmap (WCAG 2.5.7 / 2.1.1). Border color is set inline to the
+     selected palette color. */
+  .editor .hbox {
+    position: absolute; box-sizing: border-box;
+    border: 3px solid transparent;
+    cursor: move; touch-action: none;
+  }
+  .editor .hbox:focus-visible { outline: 2px dashed #fff; outline-offset: 2px; }
   .editor canvas {
     max-width: 100%; max-height: 100%;
     touch-action: none; cursor: crosshair;
@@ -125,7 +137,7 @@ export const REPORTER_STYLES = `
     border: 3px solid transparent; box-sizing: border-box;
   }
   .editor .swatch[aria-pressed="true"] { border-color: white; }
-  .editor .undo {
+  .editor .tool, .editor .undo {
     all: unset; cursor: pointer; color: white; padding: 0.375em 0.625em;
   }
   .editor .undo[disabled] { color: #6b7280; cursor: default; }
