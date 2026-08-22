@@ -1,5 +1,9 @@
 import shakeImage from './ui/onboarding/shake.webp';
 import longpressImage from './ui/onboarding/longpress.webp';
+import { manageModalFocus } from './ui/focus';
+import { describeShortcut, shortcutGlyphs } from './triggers/shortcut';
+import { WIDGET_TOGGLE_LABEL } from './triggers/widget';
+import type { ShortcutConfig } from './runtime';
 
 // Persistence — same pattern as identity.ts, falls back to in-memory
 // when localStorage is unavailable (Safari private mode, sandboxed
@@ -39,7 +43,13 @@ let active = false;
 interface PresentArgs {
   shakeEnabled: boolean;
   longPressEnabled: boolean;
-  enableShortcut: boolean;
+  /**
+   * The *effective* shortcut combo (default or host-configured), or
+   * `false` when the shortcut is disabled — the tile renders whatever
+   * combo the keydown listener actually matches on, so display and
+   * behaviour can't drift apart.
+   */
+  shortcut: Required<ShortcutConfig> | false;
   enableFloatingWidget: boolean;
 }
 
@@ -73,6 +83,7 @@ function present(args: PresentArgs, markAfter: boolean): void {
 
   const host = document.createElement('div');
   host.id = 'it-onboarding-host';
+  host.lang = 'en'; // SDK copy is English regardless of host page language
   Object.assign(host.style, {
     position: 'fixed',
     inset: '0',
@@ -82,8 +93,13 @@ function present(args: PresentArgs, markAfter: boolean): void {
   const shadow = host.attachShadow({ mode: 'closed' });
   document.body.appendChild(host);
 
+  // Trap focus in the dialog, inert the host page, restore focus on
+  // teardown.
+  const focus = manageModalFocus(host, shadow);
+
   const teardown = () => {
     host.remove();
+    focus.release();
     active = false;
   };
 
@@ -111,10 +127,16 @@ function present(args: PresentArgs, markAfter: boolean): void {
       </div>
     </div>
   `;
-  shadow.getElementById('it-onb-dismiss')?.addEventListener('click', () => {
+  const dismiss = () => {
     if (markAfter) markShown();
     teardown();
-  });
+  };
+  const dismissBtn = shadow.getElementById('it-onb-dismiss') as HTMLButtonElement | null;
+  dismissBtn?.addEventListener('click', dismiss);
+  // Escape dismisses the same way "Got it" does.
+  focus.setEscapeHandler(dismiss);
+  // Move focus into the dialog on open.
+  setTimeout(() => dismissBtn?.focus(), 0);
 }
 
 interface Tile {
@@ -143,21 +165,30 @@ function buildTiles(args: PresentArgs): Tile[] {
       image: longpressImage,
     });
   }
-  if (args.enableShortcut) {
+  if (args.shortcut) {
+    // Caption and glyph are derived from the effective config so a
+    // host-remapped combo (or a future default change) shows up here
+    // automatically instead of drifting from the real listener.
+    const glyphs = escapeHtml(shortcutGlyphs(args.shortcut));
     tiles.push({
       title: 'Keyboard shortcut',
-      caption: 'Cmd/Ctrl + Shift + B.',
+      caption: `${describeShortcut(args.shortcut)}.`,
       // SVG glyph for the keyboard shortcut — designed inline because
       // we don't have a dedicated illustration. Reads cleanly at tile
-      // size and keeps the bundle small.
-      inlineSvg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="20" width="80" height="60" rx="8" fill="#EAF0F6" stroke="#1FA2E8" stroke-width="2"/><text x="50" y="58" text-anchor="middle" font-family="-apple-system, Helvetica, sans-serif" font-size="22" font-weight="600" fill="#1FA2E8">⌘ B</text></svg>',
+      // size and keeps the bundle small. Font size steps down for
+      // longer combos (e.g. with Shift) so the label stays inside the
+      // keycap rect.
+      inlineSvg: `<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="20" width="80" height="60" rx="8" fill="#EAF0F6" stroke="#1FA2E8" stroke-width="2"/><text x="50" y="57" text-anchor="middle" font-family="-apple-system, Helvetica, sans-serif" font-size="${glyphs.length > 3 ? 18 : 22}" font-weight="600" fill="#1FA2E8">${glyphs}</text></svg>`,
     });
   }
   if (args.enableFloatingWidget) {
     tiles.push({
       title: 'Floating button',
-      caption: 'Tap the corner button anytime.',
-      inlineSvg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="75" cy="75" r="20" fill="#1FA2E8"/><circle cx="75" cy="75" r="20" fill="none" stroke="#0D7C8A" stroke-width="2" stroke-dasharray="4 4" opacity="0.5"/></svg>',
+      // The button starts hidden, so 'tap the corner button' alone
+      // describes something that isn't on screen yet. Lead with how to
+      // summon it; the hold-to-hide half is the way back out.
+      caption: `${WIDGET_TOGGLE_LABEL} shows or hides it. Hold the button to tuck it away.`,
+      inlineSvg: '<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="75" cy="75" r="20" fill="#1FA2E8"/><circle cx="75" cy="75" r="20" fill="none" stroke="#0D7C8A" stroke-width="2" stroke-dasharray="4 4" opacity="0.5"/></svg>',
     });
   }
   return tiles;
@@ -187,15 +218,20 @@ function escapeHtml(s: string): string {
 }
 
 const STYLES = `
-  :host { all: initial; }
+  /* 1rem pierces the shadow boundary and tracks the user's browser
+     default font size (WCAG 1.4.4); all inner sizes are em off this base. */
+  :host { all: initial; font-size: 1rem; }
   .overlay {
     position: fixed; inset: 0;
     background: rgba(14, 26, 43, 0.55);
     display: flex; align-items: center; justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    animation: it-fadein 160ms ease-out;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .overlay { animation: it-fadein 160ms ease-out; }
   }
   @keyframes it-fadein { from { opacity: 0 } to { opacity: 1 } }
+  button:focus-visible { outline: 2px solid #1577AD; outline-offset: 2px; }
   .sheet {
     background: #F4F7FA;
     border-radius: 12px;
@@ -209,11 +245,11 @@ const STYLES = `
   .header { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
   .brand-icon { color: #1FA2E8; flex-shrink: 0; }
   h2 {
-    margin: 0; font-size: 16px; font-weight: 600;
+    margin: 0; font-size: 1em; font-weight: 600;
     color: #0E1A2B; letter-spacing: -0.3px;
   }
   .subtitle {
-    margin: 2px 0 0; font-size: 12px; color: #6E7E94;
+    margin: 2px 0 0; font-size: 0.75em; color: #5B6B80;
   }
   .tiles { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
   .tile {
@@ -236,17 +272,17 @@ const STYLES = `
   .illustration img { width: 100%; height: 100%; display: block; object-fit: contain; }
   .tile-body { flex: 1; min-width: 0; }
   .tile-title {
-    font-size: 15px; font-weight: 600; color: #0E1A2B;
+    font-size: 0.9375em; font-weight: 600; color: #0E1A2B;
     margin-bottom: 2px;
   }
-  .tile-caption { font-size: 13px; color: #43536B; }
+  .tile-caption { font-size: 0.8125em; color: #43536B; }
   .primary {
     width: 100%; min-height: 44px;
-    background: #1FA2E8; color: #FFFFFF;
+    background: #1577AD; color: #FFFFFF;
     border: none; border-radius: 4px;
-    font-size: 14px; font-weight: 500;
+    font-size: 0.875em; font-weight: 500;
     cursor: pointer; letter-spacing: -0.1px;
   }
-  .primary:hover { background: #1A8FCF; }
+  .primary:hover { background: #116591; }
   .primary:active { transform: translateY(1px); }
 `;

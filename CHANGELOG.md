@@ -4,6 +4,43 @@ All notable changes to `@issuetracker/sdk-web` are documented here.
 This project follows [Semantic Versioning](https://semver.org/) and the
 format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+
+- **Reporter keyboard shortcut remapped: Cmd/Ctrl + Alt + R** (was
+  Cmd/Ctrl + Shift + B, which collides with the browser's
+  bookmarks-bar toggle — our `preventDefault()` broke that browser
+  feature on host pages). `enableShortcut` now also accepts a
+  descriptor `{ code, altKey?, shiftKey? }` to remap the combo
+  (Cmd/Ctrl is always required), in addition to `true` (default
+  combo) and `false` (no listener installed). `code` is a
+  `KeyboardEvent.code` physical-key value (`KeyR`, ...) so combos are
+  keyboard-layout independent. The onboarding popover derives the
+  combo it displays from the effective config, so a remap shows up
+  there automatically. New exported type: `ShortcutConfig`.
+
+### Added
+
+- Tester-gated reporting (ADR-0005). The SDK now fetches remote config
+  from `/v1/getSdkConfig` at `configure()` (cached in `localStorage`,
+  refreshed in the background). When the project is in testers-only
+  mode, the gesture triggers (keyboard shortcut, two-finger long-press,
+  floating widget) are silently inert unless a valid tester token is
+  present. Fail-mode with no cache: prod-prefixed keys fail closed,
+  dev/staging keys fail open.
+- `Issuetracker.setTesterToken(token, expiresAt?)` and
+  `Issuetracker.clearTesterToken()`. Web has no companion-app
+  transport, so the token is handed over programmatically; when
+  present it is attached to every report and stamps the tester's
+  identity server-side, in open mode too.
+- New wire error reasons `tester_attestation_required` and
+  `tester_token_invalid`. Both are non-recoverable but NOT terminal:
+  the SDK shows an inline message in the report form, drops a stale
+  token, re-pulls config, and never transitions to TERMINATED on them.
+  A terminal reason on the config fetch itself (revoked key, deleted
+  project) does terminate, same as on submission.
+
 ## [0.5.13] - 2026-05-31
 
 ### Added

@@ -31,8 +31,13 @@ import { Issuetracker } from '@issuetracker/sdk-web';
 Issuetracker.configure({ apiKey: 'it_...' });
 ```
 
-Default trigger: **Ctrl/Cmd + Alt + T**. The floating widget is hidden by
-default — enable with `showFloatingWidget: true`.
+Default reporter shortcut: **Ctrl/Cmd + Alt + R** — remap it or turn it
+off via `enableShortcut` (`false`, or a descriptor such as
+`{ code: 'KeyB', shiftKey: true }`; `code` is a physical-key
+`KeyboardEvent.code` value, so the combo is keyboard-layout
+independent). Widget-visibility toggle: **Ctrl/Cmd + Alt + T**. The
+floating widget is hidden by default — enable with
+`showFloatingWidget: true`.
 
 ## Full documentation
 

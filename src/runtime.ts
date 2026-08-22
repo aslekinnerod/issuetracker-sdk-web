@@ -43,6 +43,25 @@ export function resolveEndpoint(apiKey: string): string {
   return 'https://api.issuetracker.no/v1';
 }
 
+/**
+ * Describes the reporter keyboard shortcut. Cmd (macOS) / Ctrl
+ * (Windows, Linux) is always part of the combo and cannot be turned
+ * off; the descriptor adds Alt and/or Shift on top and names the key.
+ *
+ * `code` is a KeyboardEvent.code value (`KeyR`, `Digit1`, ...), i.e.
+ * the *physical* key — layout-independent, and unaffected by
+ * Alt+letter producing dead keys or altered characters in `e.key`
+ * on some layouts.
+ */
+export interface ShortcutConfig {
+  /** KeyboardEvent.code, e.g. `'KeyR'`. */
+  code: string;
+  /** Require Alt/Option. Default `false`. */
+  altKey?: boolean;
+  /** Require Shift. Default `false`. */
+  shiftKey?: boolean;
+}
+
 export interface ConfigureOptions {
   apiKey: string;
   /**
@@ -56,8 +75,15 @@ export interface ConfigureOptions {
    * Defaults to `false` so existing integrations are unaffected.
    */
   showOnboarding?: boolean;
-  /** Cmd/Ctrl + Shift + B keyboard shortcut. Web-only. */
-  enableShortcut?: boolean;
+  /**
+   * Keyboard shortcut that opens the reporter. Web-only.
+   * - `true` (default): Cmd/Ctrl + Alt + R.
+   * - `false`: shortcut disabled entirely (no listener installed).
+   * - A {@link ShortcutConfig} descriptor remaps it, e.g.
+   *   `{ code: 'KeyB', shiftKey: true }` for Cmd/Ctrl + Shift + B.
+   * The onboarding popover displays whatever combo is active here.
+   */
+  enableShortcut?: boolean | ShortcutConfig;
   /**
    * Two-finger long-press for 3 seconds. Touch devices / PWAs.
    * Same name as the native iOS + Android SDKs use, so cross-platform
