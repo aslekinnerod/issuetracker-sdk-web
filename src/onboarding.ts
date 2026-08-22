@@ -2,6 +2,7 @@ import shakeImage from './ui/onboarding/shake.webp';
 import longpressImage from './ui/onboarding/longpress.webp';
 import { manageModalFocus } from './ui/focus';
 import { describeShortcut, shortcutGlyphs } from './triggers/shortcut';
+import { WIDGET_TOGGLE_LABEL } from './triggers/widget';
 import type { ShortcutConfig } from './runtime';
 
 // Persistence — same pattern as identity.ts, falls back to in-memory
@@ -183,7 +184,10 @@ function buildTiles(args: PresentArgs): Tile[] {
   if (args.enableFloatingWidget) {
     tiles.push({
       title: 'Floating button',
-      caption: 'Tap the corner button anytime.',
+      // The button starts hidden, so 'tap the corner button' alone
+      // describes something that isn't on screen yet. Lead with how to
+      // summon it; the hold-to-hide half is the way back out.
+      caption: `${WIDGET_TOGGLE_LABEL} shows or hides it. Hold the button to tuck it away.`,
       inlineSvg: '<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="75" cy="75" r="20" fill="#1FA2E8"/><circle cx="75" cy="75" r="20" fill="none" stroke="#0D7C8A" stroke-width="2" stroke-dasharray="4 4" opacity="0.5"/></svg>',
     });
   }
