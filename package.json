@@ -46,6 +46,7 @@
     "prepare": "tsup"
   },
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "happy-dom": "^15.7.4",
     "html2canvas-pro": "^2.4.1",
     "tsup": "^8.3.5",
