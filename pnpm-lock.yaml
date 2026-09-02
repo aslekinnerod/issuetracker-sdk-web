@@ -11,9 +11,6 @@ importers:
       happy-dom:
         specifier: ^15.7.4
         version: 15.11.7
-      html2canvas:
-        specifier: ^1.4.1
-        version: 1.4.1
       html2canvas-pro:
         specifier: ^2.4.1
         version: 2.4.1
@@ -783,10 +780,6 @@ packages:
   html2canvas-pro@2.4.1:
     resolution: {integrity: sha512-yjArt1NPIduV9aN6oK+FOQHb7INT46XMOu7Ue5YcKvlxpkEwmg+QpkCV3Bmfb+LzdltLy45kSYjHM/xyS3ukqw==}
     engines: {node: '>=16.0.0'}
-
-  html2canvas@1.4.1:
-    resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
-    engines: {node: '>=8.0.0'}
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -1608,11 +1601,6 @@ snapshots:
       whatwg-mimetype: 3.0.0
 
   html2canvas-pro@2.4.1:
-    dependencies:
-      css-line-break: 2.1.0
-      text-segmentation: 1.0.3
-
-  html2canvas@1.4.1:
     dependencies:
       css-line-break: 2.1.0
       text-segmentation: 1.0.3
