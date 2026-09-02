@@ -17,7 +17,7 @@ export default defineConfig({
   // report is triggered), but consumers no longer have to resolve
   // it themselves — some bundler setups failed to resolve the bare
   // external specifier, silently breaking screenshots.
-  noExternal: ['html2canvas'],
+  noExternal: ['html2canvas-pro'],
   // Onboarding illustrations are imported as base64 data URLs so they
   // ship inline (no runtime fetch, no CDN dependency). WebP keeps the
   // bundle under ~70 KB; raw SVG of the same illustrations would be

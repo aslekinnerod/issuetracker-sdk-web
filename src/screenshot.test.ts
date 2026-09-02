@@ -6,7 +6,7 @@ const h = vi.hoisted(() => ({
 
 // html2canvas is dynamically imported by screenshot.ts; mock it so the
 // test never touches a real renderer.
-vi.mock('html2canvas', () => ({
+vi.mock('html2canvas-pro', () => ({
   default: vi.fn(async () => h.fullCanvas),
 }));
 
@@ -43,7 +43,7 @@ describe('captureScreenshot', () => {
     const { drawImage, viewCanvas } = mockViewCanvas();
 
     const { captureScreenshot } = await import('./screenshot');
-    const html2canvas = (await import('html2canvas')).default as unknown as ReturnType<typeof vi.fn>;
+    const html2canvas = (await import('html2canvas-pro')).default as unknown as ReturnType<typeof vi.fn>;
     const result = await captureScreenshot();
 
     // scrollX/scrollY: 0 is what prevents html2canvas from double-
@@ -61,7 +61,7 @@ describe('captureScreenshot', () => {
 
   it('returns null when html2canvas throws', async () => {
     setViewport(0, 0, 800, 600);
-    const html2canvas = (await import('html2canvas')).default as unknown as ReturnType<typeof vi.fn>;
+    const html2canvas = (await import('html2canvas-pro')).default as unknown as ReturnType<typeof vi.fn>;
     html2canvas.mockRejectedValueOnce(new Error('tainted canvas'));
 
     const { captureScreenshot } = await import('./screenshot');
@@ -78,7 +78,7 @@ describe('captureScreenshot', () => {
     const baselineChildren = document.body.children.length;
 
     let stateDuringCapture: { videoHidden: boolean; bodyChildren: number } | undefined;
-    const html2canvas = (await import('html2canvas')).default as unknown as ReturnType<typeof vi.fn>;
+    const html2canvas = (await import('html2canvas-pro')).default as unknown as ReturnType<typeof vi.fn>;
     html2canvas.mockImplementationOnce(async () => {
       stateDuringCapture = {
         videoHidden: video.style.display === 'none',

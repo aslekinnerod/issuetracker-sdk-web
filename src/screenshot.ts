@@ -7,9 +7,13 @@
  * document. A user reporting "this dropdown is broken" wants the
  * dropdown in the screenshot, not 3000 px of off-screen content.
  *
- * html2canvas is bundled into our own dist (see tsup noExternal) and
- * loaded via dynamic import, so the ~140 KB chunk only downloads when
- * the user actually triggers a report.
+ * html2canvas-pro is bundled into our own dist (see tsup noExternal)
+ * and loaded via dynamic import, so the chunk only downloads when the
+ * user actually triggers a report. The -pro fork is API-compatible and
+ * adds support for modern CSS color functions (oklch/oklab/lab/lch/
+ * color()) that Tailwind v4 and fresh design systems emit — upstream
+ * html2canvas 1.4 throws "unsupported color function" on those pages,
+ * silently killing screenshots for every such host app.
  */
 export async function captureScreenshot(): Promise<string | null> {
   if (typeof document === 'undefined') return null;
@@ -21,7 +25,7 @@ export async function captureScreenshot(): Promise<string | null> {
   // on a real video-hero page.
   const swaps = swapVideosForPlaceholders();
   try {
-    const { default: html2canvas } = await import('html2canvas');
+    const { default: html2canvas } = await import('html2canvas-pro');
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
