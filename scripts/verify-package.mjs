@@ -50,15 +50,35 @@ if (expected.size === 0) {
 }
 
 // `npm pack --dry-run` runs the real `prepare` build and reports the exact
-// file list that would be published.
-const raw = execFileSync('npm', ['pack', '--dry-run', '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-const start = raw.indexOf('[');
+// file list that would be published — but tsup writes its build log to the
+// same stream, so the output is a banner followed by the JSON. Two things
+// that look like they would fix that do not: `--ignore-scripts` does not
+// stop `prepare` here, and taking the first `[` lands inside tsup's ANSI
+// colour escape (`\x1b[34mCLI`), which is what made this script die at
+// position 3 and turn CI red.
+//
+// npm prints the array with its opening bracket alone on a line, so that
+// is the boundary to cut on — no guessing, and it still fails loudly if
+// the format ever changes.
+const raw = execFileSync('npm', ['pack', '--dry-run', '--json'], {
+  encoding: 'utf8',
+  maxBuffer: 32 * 1024 * 1024,
+});
+const start = raw.search(/^\[$/m);
 if (start === -1) {
-  console.error('verify-package: could not parse `npm pack --dry-run --json` output.');
-  console.error(raw.slice(0, 2000));
+  console.error('verify-package: could not find the JSON report in `npm pack` output.');
+  console.error(raw.slice(-2000));
   process.exit(1);
 }
-const report = JSON.parse(raw.slice(start));
+let report;
+try {
+  report = JSON.parse(raw.slice(start));
+} catch (err) {
+  console.error('verify-package: could not parse `npm pack --dry-run --json` output.');
+  console.error(String(err));
+  console.error(raw.slice(start, start + 2000));
+  process.exit(1);
+}
 const shipped = new Set(report[0].files.map((f) => f.path));
 
 const missing = [...expected].filter((p) => !shipped.has(p));
