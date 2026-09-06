@@ -10,6 +10,13 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+-*'
   workflow_dispatch:
 
+# Never cancel a publish in flight — a cancelled publish is a
+# half-published publish. Serialising instead means two tags pushed back
+# to back cannot both race to move the `latest` dist-tag.
+concurrency:
+  group: publish-sdk-web
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -19,36 +26,193 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      # Full history + tags: the dispatch path below asserts HEAD is
+      # sitting on the tag matching package.json, which needs the tags.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.1
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          fetch-depth: 0
+
+      # Actions in this job are pinned to commit SHAs, not mutable major
+      # tags: they run in the same job that holds `id-token: write` and
+      # signs the provenance attestation, so a repointed tag would mean
+      # attacker-chosen code inside the release credential's blast radius.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.1.0
+        with:
+          # Pinned exactly: --frozen-lockfile pins dependency resolution
+          # but not the installer, and the installer decides node_modules
+          # layout (hoisting / which transitive @types are visible to tsc).
+          version: 10.34.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Verify package.json version matches tag
-        if: github.event_name == 'push'
+      # Resolve exactly what we are about to publish, and refuse to
+      # publish anything whose provenance we cannot establish.
+      #
+      # Both trigger paths are checked, not just `push`. A
+      # workflow_dispatch used to skip the version guard entirely and
+      # could publish any ref from any branch, leaving a version on npm
+      # forever with no git tag pointing at the code inside it.
+      - name: Resolve version, dist-tag, and verify it matches a real tag
+        id: rel
         run: |
-          tag="${GITHUB_REF_NAME}"
-          pkg_version=$(node -p "require('./package.json').version")
-          if [ "$tag" != "$pkg_version" ]; then
-            echo "::error::Tag '$tag' does not match package.json version '$pkg_version'"
+          set -euo pipefail
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            # Manual dispatch must still be sitting on the matching tag.
+            tag=$(git describe --exact-match --tags HEAD 2>/dev/null || echo "")
+            if [ -z "$tag" ]; then
+              echo "::error::workflow_dispatch on $(git rev-parse --short HEAD), which is not tagged. Publish only from a tagged commit."
+              exit 1
+            fi
+          fi
+
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag '$tag' does not match package.json version '$version'"
             exit 1
           fi
+
+          # Prereleases must never become the default install for
+          # consumers. `npm publish` writes the `latest` dist-tag unless
+          # told otherwise, regardless of the semver prerelease suffix —
+          # so pushing 1.0.0-rc.1 used to make an RC the default version
+          # for every `npm i @issuetracker/sdk-web`, including our own
+          # web monorepo, with nothing anywhere reporting it.
+          case "$version" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+
+          # Republishing an existing version is a silent no-op at best.
+          existing=$(npm view "${name}@${version}" version 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            echo "::error::${name}@${version} is already published on npm. Bump the version."
+            exit 1
+          fi
+
+          echo "name=$name"         >> "$GITHUB_OUTPUT"
+          echo "version=$version"   >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${name}@${version} under dist-tag '${dist_tag}'"
 
       # Node 22 ships npm 10, which only uses the OIDC id-token for
       # provenance signing — not for publish auth. OIDC trusted
       # publishing needs npm >= 11.5.1, so upgrade before publishing.
+      #
+      # Pinned, not @latest: this is the one unpinned network fetch that
+      # used to run with the release credential in scope, immediately
+      # before minting a signed provenance attestation. Bump it
+      # deliberately. The assertion below keeps the pin honest — if the
+      # install silently no-ops, the job stops rather than falling back
+      # to npm 10 and publishing without trusted-publisher auth.
       - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@latest
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.19.1
+          got=$(npm --version)
+          echo "npm $got"
+          node -e '
+            const min = [11, 5, 1];
+            const got = process.argv[1].split(".").map(Number);
+            for (let i = 0; i < 3; i++) {
+              if (got[i] > min[i]) process.exit(0);
+              if (got[i] < min[i]) {
+                console.error(`::error::npm ${process.argv[1]} is below the 11.5.1 floor required for OIDC trusted publishing`);
+                process.exit(1);
+              }
+            }
+          ' "$got"
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
 
+      # The tarball is rebuilt by `prepare` during `npm publish` (tsup
+      # with clean: true), so the artifact that ships is not the one the
+      # steps above tested. Assert its contents against what package.json
+      # promises before it leaves the runner.
+      - name: Verify the tarball contents
+        run: pnpm verify:package
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag "${{ steps.rel.outputs.dist_tag }}"
+
+      # Job-green and version-published were two different facts. Make
+      # them one: read the registry back and assert both that the version
+      # resolves and that `latest` did not move somewhere it should not.
+      - name: Verify the version actually reached npm
+        run: |
+          set -euo pipefail
+          name='${{ steps.rel.outputs.name }}'
+          version='${{ steps.rel.outputs.version }}'
+          dist_tag='${{ steps.rel.outputs.dist_tag }}'
+
+          published=""
+          for attempt in 1 2 3 4 5 6; do
+            published=$(npm view "${name}@${version}" version 2>/dev/null || true)
+            [ "$published" = "$version" ] && break
+            echo "Attempt ${attempt}: ${name}@${version} not resolvable yet; retrying…"
+            sleep 10
+          done
+          if [ "$published" != "$version" ]; then
+            echo "::error::npm publish reported success but ${name}@${version} is not resolvable on the registry."
+            exit 1
+          fi
+
+          tagged=$(npm view "$name" "dist-tags.${dist_tag}" 2>/dev/null || true)
+          if [ "$tagged" != "$version" ]; then
+            echo "::error::dist-tag '${dist_tag}' is '${tagged}', expected '${version}'."
+            exit 1
+          fi
+
+          latest=$(npm view "$name" dist-tags.latest 2>/dev/null || true)
+          case "$latest" in
+            *-*)
+              echo "::error::dist-tag 'latest' is now the prerelease '${latest}'. Fix with: npm dist-tag add ${name}@<stable> latest"
+              exit 1
+              ;;
+          esac
+
+          echo "Published ${name}@${version} (dist-tag ${dist_tag}); latest is ${latest}"
+
+  # A failed publish used to be invisible: the version bump, the CHANGELOG
+  # entry and the git tag all say the release shipped while npm has
+  # nothing, and discovery depended on somebody opening the Actions tab.
+  #
+  # Separate job so `issues: write` is not granted to the job that holds
+  # the publish credential.
+  notify-failure:
+    needs: publish
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue naming the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Publish failed for ${TAG}" \
+            --body "$(printf '%s\n' \
+              "The npm publish workflow failed for \`${TAG}\`." \
+              "" \
+              "The git tag and any CHANGELOG entry already say the release shipped." \
+              "Check whether the version actually reached npm before assuming either way:" \
+              "" \
+              '```' \
+              "npm view @issuetracker/sdk-web versions --json" \
+              "npm view @issuetracker/sdk-web dist-tags --json" \
+              '```' \
+              "" \
+              "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"

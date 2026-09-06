@@ -14,7 +14,14 @@
     "skipLibCheck": true,
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // Explicit, reviewable list of ambient @types packages. Without it
+    // tsc pulls in whatever @types/* the installer happens to expose
+    // under node_modules/@types, so what typechecks depends on hoisting
+    // rather than on what this project declares — the mechanism behind
+    // the CI type-declaration failure in 5ca9205. `node` is needed for
+    // node:fs / node:path in src/contrast.test.ts.
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "example"]
