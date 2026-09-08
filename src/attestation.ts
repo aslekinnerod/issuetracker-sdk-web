@@ -1,4 +1,4 @@
-import { transitionToTerminated } from './lifecycle';
+import { isLifecycleTerminated, transitionToTerminated } from './lifecycle';
 import type { Runtime } from './runtime';
 import { ApiError, callFunction } from './transport';
 import { isSdkErrorTerminal } from './errors';
@@ -92,7 +92,17 @@ export function installAttestation(rt: Runtime): void {
   void refreshRemoteConfig(rt);
 }
 
+/**
+ * Background config refresh. Skipped entirely while TERMINATED
+ * (Decision 9 §2 — a terminated SDK runs no background tasks): the
+ * gating flag this fetches can only decide whether triggers may open a
+ * report form the terminal state has already replaced, so the request
+ * has no consumer, and a deployed cohort bound to a deleted project
+ * would otherwise keep a per-page-load heartbeat against our backend
+ * for the rest of the install's life.
+ */
 export async function refreshRemoteConfig(rt: Runtime): Promise<void> {
+  if (isLifecycleTerminated()) return;
   try {
     const result = await callFunction<{ requireTesterAttestation: boolean }>(
       rt.endpoint,

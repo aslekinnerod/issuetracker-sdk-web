@@ -6,6 +6,36 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A terminated SDK no longer talks to a dead endpoint** (ITD-164,
+  ADR-0003 Decision 9 §2/§6). Three background paths ignored the
+  TERMINATED state: `configure()` refreshed remote config on every page
+  load, the pending-crash flush re-POSTed the queued crash on every
+  page load, and a terminal `details.error` on that flush was swallowed
+  by a bare `catch`. All three are now gated on the lifecycle state,
+  and the crash flush dispatches terminal errors exactly like the
+  interactive submit path. A healthy SDK is unaffected — it still
+  fetches config, flushes crashes and submits reports as before.
+- **The local queue is purged on termination, not just paused**
+  (ITD-164). `transitionToTerminated()` now drops the queued crash
+  atomically with the transition, and rehydrating the marker on a later
+  load purges again, so a process death between the two halves cannot
+  leave a deliverable item behind. A crash whose delivery fails for a
+  *recoverable* reason (quota, transient, offline) is still kept for
+  the next load — the purge is for reports bound to a dead project, not
+  for reports that were never delivered anywhere.
+- **One termination predicate across every path** (ITD-163). The
+  reporter's submit path dispatched on `!details.recoverable` while the
+  config path used `isSdkErrorTerminal(details.error)`. Those are not
+  equivalent: the ADR-0005 tester-gating reasons are `recoverable:
+  false` but deliberately non-terminal, and a server that stamped
+  `recoverable: false` onto a `transient` failure would have
+  permanently bricked every deployed install through that one line.
+  Both paths — plus the localStorage rehydration and
+  `transitionToTerminated()` itself — now use `isSdkErrorTerminal`, the
+  same predicate name and wire values every other platform SDK uses.
+
 ### Changed
 
 - **Reporter keyboard shortcut remapped: Cmd/Ctrl + Alt + R** (was

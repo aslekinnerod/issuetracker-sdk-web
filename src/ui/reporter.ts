@@ -4,7 +4,7 @@ import { getName, setName, clearName } from '../identity';
 import { captureScreenshot } from '../screenshot';
 import { submitReport } from '../submit';
 import { ApiError } from '../transport';
-import { isTesterGatingReason } from '../errors';
+import { isSdkErrorTerminal, isTesterGatingReason } from '../errors';
 import { clearTesterToken, refreshRemoteConfig } from '../attestation';
 import { isLifecycleTerminated, transitionToTerminated } from '../lifecycle';
 import { REPORTER_STYLES } from './styles';
@@ -314,12 +314,20 @@ function renderReportForm(
         errEl.style.display = '';
         return;
       }
-      // ADR-0003 Decision 9: non-recoverable failures flip the SDK
-      // into one-way TERMINATED. Swap the form for the terminal view
+      // ADR-0003 Decision 9: terminal failures flip the SDK into
+      // one-way TERMINATED. Swap the form for the terminal view
       // in-place so the user lands on the authoritative end-state
       // immediately, rather than seeing a generic error they cannot
       // retry past.
-      if (e instanceof ApiError && e.details && !e.details.recoverable) {
+      //
+      // Dispatch is on `details.error` via isSdkErrorTerminal — the
+      // same predicate attestation.ts uses on the config path
+      // (ITD-163). `!details.recoverable` is NOT equivalent: the
+      // ADR-0005 tester-gating reasons are `recoverable: false` yet
+      // deliberately non-terminal, and a server that stamped
+      // `recoverable: false` onto a transient failure would otherwise
+      // brick every deployed install through this one line.
+      if (e instanceof ApiError && e.details && isSdkErrorTerminal(e.details.error)) {
         transitionToTerminated(e.details.error, runtime.onConfigurationError);
         renderTerminated(shadow, onClose, runtime.terminatedUI);
         return;

@@ -22,7 +22,9 @@ import type { SdkErrorReason } from './errors';
  * what Decision 9 requires, and they pass *because the assertion
  * inside them currently fails*. Fixing the gap turns them red, which
  * is the signal to flip `it.fails` back to `it`. Each one names the
- * gap it tracks.
+ * gap it tracks. None are marked today — ITD-163 (one termination
+ * predicate on both paths) and ITD-164 (no background traffic once
+ * terminated, queue purged) closed the last five.
  *
  * Module-state discipline mirrors lifecycle.test.ts / widget.test.ts:
  * `vi.resetModules()` before each import so module-level singletons
@@ -94,18 +96,20 @@ let calls: FetchCall[] = [];
  * never masks a Decision 9 behaviour) and `createIssueFromSdk` to
  * whatever the test wants.
  */
-function stubFetch(issueResponse: () => Response): void {
+function stubFetchRouted(configResponse: () => Response, issueResponse: () => Response): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { data: Record<string, unknown> };
       calls.push({ url: String(url), body: body.data });
-      if (String(url).endsWith('/getSdkConfig')) {
-        return callableOk({ requireTesterAttestation: false });
-      }
+      if (String(url).endsWith('/getSdkConfig')) return configResponse();
       return issueResponse();
     }),
   );
+}
+
+function stubFetch(issueResponse: () => Response): void {
+  stubFetchRouted(() => callableOk({ requireTesterAttestation: false }), issueResponse);
 }
 
 const issueCalls = (): FetchCall[] => calls.filter((c) => c.url.endsWith('/createIssueFromSdk'));
@@ -351,22 +355,25 @@ describe('Decision 9 — recoverable reasons keep the SDK alive', () => {
     expect(onConfigurationError).not.toHaveBeenCalled();
   });
 
-  it.fails(
-    'GAP: a contradictory {error:"transient", recoverable:false} terminates the fleet',
+  it(
+    'a contradictory {error:"transient", recoverable:false} does NOT terminate the fleet',
     async () => {
-      // reporter.ts dispatches on `!details.recoverable`; attestation.ts
-      // dispatches on `isSdkErrorTerminal(details.error)`. Only the
-      // latter matches "dispatch on details.error". With the former, a
-      // server bug that stamps recoverable:false onto a transient
-      // failure permanently bricks every deployed install — the single
-      // highest-blast-radius write in the SDK, taken on a field the
-      // reason enum already answers.
+      // ITD-163. Both dispatch sites use isSdkErrorTerminal(details.error);
+      // neither reads `details.recoverable`. Dispatching on the flag
+      // would let a server bug that stamps recoverable:false onto a
+      // transient failure permanently brick every deployed install —
+      // the single highest-blast-radius write in the SDK, taken on a
+      // field the reason enum already answers.
       stubFetch(() => callableError(503, { error: 'transient', recoverable: false }));
       const sdk = await bootConfigured();
 
       await fileReport(sdk);
 
       expect(sdk.isLifecycleTerminated()).toBe(false);
+      // …and the user keeps a form they can retry from, rather than
+      // being shown the terminal end-state.
+      expect(isTerminalUi()).toBe(false);
+      expect(hasReportForm()).toBe(true);
     },
   );
 });
@@ -492,13 +499,12 @@ describe('Decision 9 — TERMINATED is one-way', () => {
     expect(window.localStorage.getItem(REASON_KEY)).toBe('workspace_suspended');
   });
 
-  it.fails('GAP: a recoverable reason in storage rehydrates as TERMINATED', async () => {
-    // installLifecycle() accepts any value that passes isSdkErrorReason,
-    // including the two recoverable ones. Combined with the
-    // `!recoverable` dispatch above, a single contradictory server
-    // response writes `quota_exceeded` to disk and every subsequent load
-    // rehydrates a permanently terminated SDK. Rehydration should gate
-    // on isSdkErrorTerminal(), the same predicate attestation.ts uses.
+  it('a recoverable reason in storage does NOT rehydrate as TERMINATED', async () => {
+    // ITD-163, read side. installLifecycle() gates on
+    // isSdkErrorTerminal() and not merely on isSdkErrorReason(), so a
+    // marker naming a recoverable (or tester-gating) reason — however
+    // it got written, e.g. by an older build of the SDK — does not
+    // resurrect as a permanently terminated install on every load.
     window.localStorage.setItem(REASON_KEY, 'quota_exceeded');
     window.localStorage.setItem(AT_KEY, String(Date.now()));
     stubFetch(() => callableOk({ requireTesterAttestation: false }));
@@ -536,17 +542,16 @@ describe('Decision 9 — local queue is purged, not paused', () => {
     expect(issueCalls()).toHaveLength(1);
   });
 
-  it.fails(
-    'GAP: the pending-crash queue is re-sent on the next load after termination',
+  it(
+    'the queue is neither re-sent nor kept on a load after termination',
     async () => {
-      // crash.ts's `pendingCrash` marker IS the web SDK's local queue.
-      // Decision 9 §6: drop the queue atomically on the first TERMINATED
-      // signal, and persist the marker so "a process restart does not
-      // re-attempt delivery". configure() calls sendPendingCrashIfAny()
-      // with no lifecycle gate, so a terminated install POSTs
-      // createIssueFromSdk to the dead project on every single page load
-      // for the rest of the install's life — precisely the deployed-cohort
-      // hammering Decision 9 exists to prevent.
+      // ITD-164. queue.ts's crash slot IS the web SDK's local queue.
+      // Decision 9 §6: drop it atomically on the first TERMINATED
+      // signal, and keep the marker so "a process restart does not
+      // re-attempt delivery". A terminated install must POST nothing
+      // on the background flush path — that is the deployed-cohort
+      // hammering Decision 9 exists to prevent — and must leave no
+      // queue behind for a later load either.
       window.localStorage.setItem(REASON_KEY, 'project_deleted');
       window.localStorage.setItem(AT_KEY, String(Date.now()));
       window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
@@ -559,10 +564,11 @@ describe('Decision 9 — local queue is purged, not paused', () => {
     },
   );
 
-  it.fails('GAP: terminating does not purge an already-queued crash report', async () => {
+  it('terminating purges an already-queued crash report', async () => {
     // Queue a crash, then terminate on the manual-report path. The
-    // queued item must be gone the moment we terminate; today it stays
-    // on disk and is delivered on the next load.
+    // queued item is bound to the project the server just told us is
+    // gone, so it must be dropped the moment we terminate rather than
+    // linger on disk for the next load to deliver.
     window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
     stubFetch(() => callableError(403, { error: 'api_key_revoked', recoverable: false }));
     const sdk = await bootConfigured();
@@ -573,12 +579,56 @@ describe('Decision 9 — local queue is purged, not paused', () => {
     expect(window.localStorage.getItem(PENDING_CRASH_KEY)).toBeNull();
   });
 
-  it.fails('GAP: a terminal signal on the crash-flush path is swallowed', async () => {
-    // sendPendingCrashIfAny() wraps submitReport in a bare
-    // `catch { /* best-effort */ }`, so the server's authoritative
-    // terminal signal is discarded on this path: no TERMINATED
-    // transition, no onConfigurationError, and the SDK cheerfully
-    // carries on offering the reporter against a deleted project.
+  it('a healthy install still fetches config and still flushes the queue', async () => {
+    // The guard is on TERMINATED, not on everything. An OK install
+    // does all of its background work exactly as before.
+    window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
+    stubFetch(() => callableOk({ issueId: 'i1', projectKey: 'P', number: 1 }));
+
+    const sdk = await bootConfigured(undefined, { enableCrashReporting: true });
+
+    expect(sdk.isLifecycleTerminated()).toBe(false);
+    expect(configCalls()).toHaveLength(1);
+    expect(issueCalls()).toHaveLength(1);
+    expect(issueCalls()[0].body.crashReport).toBeTruthy();
+    // Delivered, so no longer queued.
+    expect(window.localStorage.getItem(PENDING_CRASH_KEY)).toBeNull();
+  });
+
+  it('a recoverable failure on the flush path keeps the crash queued', async () => {
+    // The purge is for reports bound to a dead project. A crash that
+    // merely hit a quota or a blip was never delivered anywhere and
+    // must survive to the next load — Decision 9 §6 keeps the queue
+    // while OK or SUSPENDED.
+    window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
+    stubFetch(() => callableError(429, { error: 'quota_exceeded', recoverable: true }));
+
+    const sdk = await bootConfigured(undefined, { enableCrashReporting: true });
+
+    expect(issueCalls()).toHaveLength(1);
+    expect(sdk.isLifecycleTerminated()).toBe(false);
+    expect(window.localStorage.getItem(PENDING_CRASH_KEY)).toBe(pendingCrash());
+  });
+
+  it('an offline flush keeps the crash queued', async () => {
+    window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    );
+
+    const sdk = await bootConfigured(undefined, { enableCrashReporting: true });
+
+    expect(sdk.isLifecycleTerminated()).toBe(false);
+    expect(window.localStorage.getItem(PENDING_CRASH_KEY)).toBe(pendingCrash());
+  });
+
+  it('a terminal signal on the crash-flush path is dispatched, not swallowed', async () => {
+    // ITD-164. The flush used to wrap submitReport in a bare
+    // `catch { /* best-effort */ }`, discarding the server's
+    // authoritative terminal signal on the one path nobody watches:
+    // no TERMINATED transition, no onConfigurationError, and the SDK
+    // carrying on offering the reporter against a deleted project.
     window.localStorage.setItem(PENDING_CRASH_KEY, pendingCrash());
     stubFetch(() => callableError(404, { error: 'project_deleted', recoverable: false }));
     const onConfigurationError = vi.fn();
@@ -590,12 +640,11 @@ describe('Decision 9 — local queue is purged, not paused', () => {
     expect(onConfigurationError).toHaveBeenCalledWith('project_deleted');
   });
 
-  it.fails('GAP: a terminated install still polls getSdkConfig on every load', async () => {
-    // Decision 9 §2: TERMINATED disables all background tasks. The
-    // remote-config refresh is a background task, and it fires from
-    // configure() before anything consults the lifecycle state — so
-    // every deployed install of a deleted project keeps a heartbeat
-    // against our backend forever.
+  it('a terminated install does not poll getSdkConfig on load', async () => {
+    // ITD-164. Decision 9 §2: TERMINATED disables all background
+    // tasks. The remote-config refresh is a background task; ungated,
+    // every deployed install of a deleted project would keep a
+    // per-page-load heartbeat against our backend forever.
     window.localStorage.setItem(REASON_KEY, 'workspace_suspended');
     window.localStorage.setItem(AT_KEY, String(Date.now()));
     stubFetch(() => callableOk({ requireTesterAttestation: false }));
@@ -679,6 +728,21 @@ describe('Decision 9 — triggers in the terminated state', () => {
     expect(shadow.querySelectorAll('button')).toHaveLength(1);
   });
 
+  it('no getSdkConfig heartbeat is issued when a trigger fires while terminated', async () => {
+    // Decision 9 §2 again, from the other direction: opening the
+    // terminal surface is a user-visible action, but it must not turn
+    // into background traffic either.
+    stubFetch(() => callableOk({ issueId: 'i1', projectKey: 'P', number: 1 }));
+    const sdk = await bootConfigured();
+    calls = [];
+
+    sdk.Issuetracker.report();
+    await tick();
+
+    expect(isTerminalUi()).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
   it('host-supplied terminatedUI strings are used, and are HTML-escaped', async () => {
     stubFetch(() => callableOk({ issueId: 'i1', projectKey: 'P', number: 1 }));
     const sdk = await bootConfigured(undefined, {
@@ -698,4 +762,88 @@ describe('Decision 9 — triggers in the terminated state', () => {
     expect(shadow.querySelector('button')?.textContent).toBe('Lukk');
     expect(shadow.querySelector('img')).toBeNull();
   });
+});
+
+// ---------------------------------------------------------------------------
+// 6. ITD-163 — one termination predicate, shared by every path
+// ---------------------------------------------------------------------------
+
+/**
+ * The whole reason enum, and the terminality the fleet agrees on.
+ * Hardcoded rather than imported from ./errors so that a change to the
+ * predicate has to be made deliberately in two places — this table is
+ * the cross-platform contract (Decision 9 §7: byte-identical wire
+ * values and identical semantics on iOS / Android / Web / RN /
+ * Flutter), not a restatement of the implementation.
+ */
+const TERMINALITY: Array<[SdkErrorReason, boolean]> = [
+  ['project_deleted', true],
+  ['project_not_found', true],
+  ['api_key_revoked', true],
+  ['workspace_suspended', true],
+  ['invalid_api_key', true],
+  ['quota_exceeded', false],
+  ['transient', false],
+  // ADR-0005 tester gating: recoverable:false on the wire, but the
+  // project is alive and the key is valid. Never terminal.
+  ['tester_attestation_required', false],
+  ['tester_token_invalid', false],
+];
+
+/** A fresh install: no marker, no queue, no leftover DOM, no stub. */
+function resetInstall(): void {
+  window.localStorage.clear();
+  calls = [];
+  document.getElementById(REPORTER_HOST_ID)?.remove();
+  document.getElementById('issuetracker-floating-widget')?.remove();
+  vi.unstubAllGlobals();
+}
+
+/**
+ * Drives the interactive submit path. Reports both the lifecycle
+ * outcome and whether the UI swapped to the terminal view — the second
+ * is what catches a call site that reads the wrong field but is saved
+ * from persisting it by the guard inside `transitionToTerminated`.
+ */
+async function terminatesViaSubmit(details: Details): Promise<boolean> {
+  resetInstall();
+  // Status 500 throughout: it matches none of the reasons' documented
+  // statuses, so a status-driven implementation cannot accidentally
+  // agree with a reason-driven one.
+  stubFetch(() => callableError(500, details));
+  const sdk = await bootConfigured();
+  await fileReport(sdk);
+  const terminated = sdk.isLifecycleTerminated();
+  expect(isTerminalUi()).toBe(terminated);
+  return terminated;
+}
+
+/** Drives the background config path and reports whether it terminated. */
+async function terminatesViaConfig(details: Details): Promise<boolean> {
+  resetInstall();
+  stubFetchRouted(
+    () => callableError(500, details),
+    () => callableOk({ issueId: 'i1', projectKey: 'P', number: 1 }),
+  );
+  const sdk = await bootConfigured();
+  return sdk.isLifecycleTerminated();
+}
+
+describe('Decision 9 — every path shares one termination predicate', () => {
+  it.each(TERMINALITY)(
+    '%s terminates=%s on the submit path and the config path alike',
+    async (reason, terminal) => {
+      // `recoverable` is varied deliberately: the two paths must agree
+      // with each other AND with the reason table regardless of what
+      // the flag says, which is only true if both dispatch on
+      // `details.error`. A path reading `!details.recoverable` fails
+      // the `recoverable: false` row for the four non-terminal reasons
+      // and the `recoverable: true` row for the five terminal ones.
+      for (const recoverable of [true, false]) {
+        const details: Details = { error: reason, recoverable };
+        expect(await terminatesViaSubmit(details)).toBe(terminal);
+        expect(await terminatesViaConfig(details)).toBe(terminal);
+      }
+    },
+  );
 });
