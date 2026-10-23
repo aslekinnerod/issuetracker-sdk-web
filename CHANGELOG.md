@@ -6,8 +6,20 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.15] - 2026-10-23
+
 ### Fixed
 
+- **An over-full breadcrumb store no longer blocks every report.**
+  Breadcrumbs loaded from `localStorage` were sent as-is, and the server
+  rejects more than five. Since a failed submit keeps the breadcrumbs,
+  every retry failed the same way until site data was cleared. Stored
+  breadcrumbs are now capped to the five newest on load and on send.
+- **The reporter no longer shows raw server messages.** A failed submit
+  displayed the server's developer-facing text (for example zod's
+  "Array must contain at most 5 element(s)"). It now shows a short
+  human message for network, quota, server and other failures, and
+  logs the raw message with `console.warn` for integrators.
 - **A terminated SDK no longer talks to a dead endpoint** (ITD-164,
   ADR-0003 Decision 9 §2/§6). Three background paths ignored the
   TERMINATED state: `configure()` refreshed remote config on every page

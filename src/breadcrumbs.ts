@@ -26,7 +26,13 @@ function ensureLoaded(): void {
   if (!ls) return;
   try {
     const raw = ls.getItem(STORAGE_KEY);
-    if (raw) entries = JSON.parse(raw) as Breadcrumb[];
+    if (raw) {
+      // Stored state is not trusted to respect the cap: anything else
+      // on the origin can write this key, and the server rejects a
+      // report with more than MAX_ENTRIES breadcrumbs outright.
+      const parsed: unknown = JSON.parse(raw);
+      entries = Array.isArray(parsed) ? (parsed as Breadcrumb[]).slice(-MAX_ENTRIES) : [];
+    }
   } catch {
     entries = [];
   }
@@ -67,7 +73,7 @@ export function recordBreadcrumb(action: string, metadata?: Record<string, strin
 
 export function snapshotBreadcrumbs(): Breadcrumb[] {
   ensureLoaded();
-  return [...entries];
+  return entries.slice(-MAX_ENTRIES);
 }
 
 export function clearBreadcrumbs(): void {

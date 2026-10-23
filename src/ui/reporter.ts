@@ -11,6 +11,7 @@ import { REPORTER_STYLES } from './styles';
 import { mountEditor } from './editor';
 import { renderTerminated } from './terminated';
 import { manageModalFocus, type ModalFocusManager } from './focus';
+import { submitErrorMessage } from './submitError';
 
 const HOST_ID = 'issuetracker-reporter';
 let active = false;
@@ -334,7 +335,8 @@ function renderReportForm(
       }
       sendBtn.removeAttribute('aria-disabled');
       sendBtn.textContent = 'Send report';
-      errEl.textContent = (e as Error).message ?? 'Failed to send report';
+      console.warn('[Issuetracker] report failed:', (e as Error)?.message ?? e);
+      errEl.textContent = submitErrorMessage(e);
       errEl.style.display = '';
     }
   });
