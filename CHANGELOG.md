@@ -6,6 +6,24 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.16] - 2026-11-11
+
+### Fixed
+
+- **Same-origin iframes are no longer blank in screenshots.**
+  html2canvas copies an iframe without its content, so the copy reloads
+  the frame and reads it before the page inside has rendered; the
+  screenshot showed only the frame's background. Each visible
+  same-origin iframe is now rendered on its own (nested up to two
+  levels, within a shared 3 s budget) and pasted into its place,
+  keeping the frame's own scroll position. Cross-origin frames can't be
+  read and still come out empty.
+- **Scrolled panels keep their scroll position in screenshots.** Under
+  `scroll-behavior: smooth`, restoring an element's scroll offset in
+  html2canvas's copy started an animation, and the render ran before it
+  moved, so scrolled sidebars came out at the top. Scrolled elements
+  are pinned to `scroll-behavior: auto` while capturing.
+
 ## [0.5.15] - 2026-10-23
 
 ### Fixed
