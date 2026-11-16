@@ -1,3 +1,5 @@
+import { bindTheme } from '../ui/theme';
+
 const HOST_ID = 'issuetracker-floating-widget';
 const VISIBLE_KEY = 'io.issuetracker.sdk.widget.visible';
 /** Hold this long on the button to tuck it away. */
@@ -78,21 +80,36 @@ export function installFloatingWidget(onTrigger: () => void): void {
       zIndex: '2147483646',
     });
     const shadow = host.attachShadow({ mode: 'closed' });
+    // Light/dark like the rest of the SDK UI. The button lives for the
+    // page's lifetime, so it stays bound (one shared observer).
+    bindTheme(host);
     shadow.innerHTML = `
       <style>
+        /* Theme tokens — see src/ui/theme.ts. Dark pages get a light
+           button so it still stands out against the page (1.4.11). */
+        :host {
+          --it-fab-bg: #1f2937;
+          --it-fab-text: #ffffff;
+          --it-focus-ring: #1577AD;
+        }
+        :host([data-theme="dark"]) {
+          --it-fab-bg: #f0f2f5;
+          --it-fab-text: #14161c;
+          --it-focus-ring: #85d6ff;
+        }
         /* Deliberately px-sized: icon-only 48px circle (no text to scale
            for WCAG 1.4.4); the "!" glyph is decorative within it. */
         button {
           all: unset;
           width: 48px; height: 48px; border-radius: 50%;
-          background: #1f2937; color: white;
+          background: var(--it-fab-bg); color: var(--it-fab-text);
           display: grid; place-items: center;
           cursor: pointer;
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
           font: 600 18px/1 system-ui, sans-serif;
         }
         /* "all: unset" strips the UA focus ring — restore it. */
-        button:focus-visible { outline: 2px solid #1577AD; outline-offset: 2px; }
+        button:focus-visible { outline: 2px solid var(--it-focus-ring); outline-offset: 2px; }
         @media (prefers-reduced-motion: no-preference) {
           button { transition: transform 120ms ease; }
           button:hover { transform: scale(1.05); }

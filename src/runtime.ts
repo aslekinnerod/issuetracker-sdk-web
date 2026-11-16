@@ -1,4 +1,7 @@
 import type { SdkErrorReason } from './errors';
+import type { ThemeSetting } from './ui/theme';
+
+export type { ThemeSetting } from './ui/theme';
 
 /**
  * Strings shown when the SDK has been terminated and a test-cohort
@@ -110,6 +113,18 @@ export interface ConfigureOptions {
    * are English. Any field left undefined falls back to the default.
    */
   terminatedUI?: TerminatedUiStrings;
+  /**
+   * Color mode for all SDK UI (reporter, screenshot editor, onboarding,
+   * floating button).
+   * - `'auto'` (default): follow the host page. An explicit signal on
+   *   `<html>` wins — `data-theme` / `data-bs-theme` /
+   *   `data-color-scheme` / `data-mode` set to `dark` or `light`, a
+   *   `dark` or `light` class, or a computed `color-scheme` of just
+   *   `dark` or `light` — otherwise the OS `prefers-color-scheme`.
+   *   Re-evaluated live while SDK UI is on screen.
+   * - `'light'` / `'dark'`: fixed, regardless of the page or OS.
+   */
+  theme?: ThemeSetting;
 }
 
 export type IssueReportType = 'bug' | 'task' | 'story';
