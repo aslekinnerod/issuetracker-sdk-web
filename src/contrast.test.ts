@@ -115,8 +115,11 @@ const PAIRS: Pair[] = [
     min: 4.5,
   },
   {
-    name: 'reporter input border on sheet (non-text, 1.4.11)',
-    fg: cssColor(REPORTER, 'input[type=text], textarea', 'border').replace(/^.*(#\w{6}).*$/, '$1'),
+    name: 'reporter input/select border on sheet (non-text, 1.4.11)',
+    fg: cssColor(REPORTER, 'input[type=text], textarea, select', 'border').replace(
+      /^.*(#\w{6}).*$/,
+      '$1',
+    ),
     bg: cssColor(REPORTER, '.sheet', 'background'),
     min: 3.0,
   },

@@ -39,6 +39,18 @@ independent). Widget-visibility toggle: **Ctrl/Cmd + Alt + T**. The
 floating widget is hidden by default — enable with
 `showFloatingWidget: true`.
 
+## Assigning reports (testers only)
+
+When the install holds a tester token
+(`Issuetracker.setTesterToken(token, expiresAt)`), the report form shows
+an optional **Assign to** picker listing the project's members by
+display name, preselected with the project's SDK triage default. The
+list is fetched lazily when the form opens. Without a tester token the
+SDK makes no request and shows no picker — end users of your app never
+see who is on your team. The server only honours an assignee from a
+valid tester naming a current project member; anything else falls back
+to the triage default.
+
 ## Full documentation
 
 API reference, triggers, TERMINATED behavior, crash reporting, identity

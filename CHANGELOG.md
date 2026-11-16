@@ -6,6 +6,22 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Testers can assign a report from the form** (ITD-266). When the
+  install holds a tester token (`Issuetracker.setTesterToken(...)`),
+  opening the report form lazily fetches the project's members from the
+  new `listSdkAssignees` endpoint and shows an optional, labelled
+  "Assign to" select, preselected with the project's SDK triage default
+  (or "Unassigned"). A changed choice is sent as `assigneeId` (`null`
+  for an explicit "Unassigned"); an untouched picker sends nothing and
+  the server applies the triage default as before. Ordinary end users
+  are unaffected: without a tester token the SDK makes no request and
+  shows no picker, so team members' names never reach them. A failed
+  fetch just hides the picker; a rejected tester token is cleared.
+  Requires the matching backend (`listSdkAssignees`, `assigneeId` on
+  `createIssueFromSdk`).
+
 ## [0.5.16] - 2026-11-11
 
 ### Fixed

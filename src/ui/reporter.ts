@@ -6,6 +6,7 @@ import { submitReport } from '../submit';
 import { ApiError } from '../transport';
 import { isSdkErrorTerminal, isTesterGatingReason } from '../errors';
 import { clearTesterToken, refreshRemoteConfig } from '../attestation';
+import { fetchAssigneeOptions, type AssigneeOptions } from '../assignees';
 import { isLifecycleTerminated, transitionToTerminated } from '../lifecycle';
 import { REPORTER_STYLES } from './styles';
 import { mountEditor } from './editor';
@@ -22,6 +23,12 @@ interface Draft {
   type: IssueReportType;
   includeScreenshot: boolean;
   screenshotDataUrl: string | null;
+  // ITD-266, tester sessions only. `assignees` stays null for everyone
+  // else (no request is made) and while the lazy fetch is in flight.
+  // `assigneeChoice` is undefined until the tester touches the picker,
+  // so an untouched picker leaves the triage default to the server.
+  assignees: AssigneeOptions | null;
+  assigneeChoice: string | null | undefined;
 }
 
 /**
@@ -89,7 +96,20 @@ export async function openReporter(runtime: Runtime): Promise<void> {
     type: 'bug',
     includeScreenshot: screenshot !== null,
     screenshotDataUrl: screenshot,
+    assignees: null,
+    assigneeChoice: undefined,
   };
+
+  // Lazy, per open, and only for a tester session: fetchAssigneeOptions
+  // makes no request without a tester token. When the options arrive
+  // the picker is slotted into whichever form render is current; a
+  // failure simply means no picker.
+  void fetchAssigneeOptions(runtime).then((options) => {
+    if (!options || !shadow.isConnected) return;
+    draft.assignees = options;
+    const slot = shadow.getElementById('assignee-slot');
+    if (slot) mountAssigneePicker(slot, draft);
+  });
 
   const render = () => {
     if (getName() === null) {
@@ -196,6 +216,7 @@ function renderReportForm(
           <div style="height:10px"></div>
           <label for="description">Description (optional)</label>
           <textarea id="description" maxlength="10000">${escapeHtml(draft.description)}</textarea>
+          <div id="assignee-slot"></div>
           ${
             draft.screenshotDataUrl
               ? `
@@ -233,6 +254,9 @@ function renderReportForm(
 
   setTimeout(() => titleInput.focus(), 0);
   sendBtn.disabled = draft.title.trim().length === 0;
+
+  const assigneeSlot = shadow.getElementById('assignee-slot');
+  if (assigneeSlot && draft.assignees) mountAssigneePicker(assigneeSlot, draft);
 
   shadow.querySelectorAll('.types button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -289,6 +313,7 @@ function renderReportForm(
           draft.includeScreenshot && draft.screenshotDataUrl
             ? draft.screenshotDataUrl
             : undefined,
+        assigneeId: draft.assigneeChoice,
       });
       // Brief visible + politely-announced confirmation before closing
       // instead of silently dismissing (WCAG 4.1.3 Status Messages).
@@ -340,6 +365,42 @@ function renderReportForm(
       errEl.style.display = '';
     }
   });
+}
+
+/**
+ * The optional "Assign to" select (ITD-266). Built with DOM APIs, not
+ * innerHTML: display names are user-controlled text. Preselects the
+ * tester's earlier choice on a re-render, else the project's triage
+ * default, else "Unassigned".
+ */
+function mountAssigneePicker(slot: HTMLElement, draft: Draft): void {
+  const options = draft.assignees;
+  if (!options) return;
+  slot.replaceChildren();
+  const spacer = document.createElement('div');
+  spacer.style.height = '10px';
+  const label = document.createElement('label');
+  label.htmlFor = 'assignee';
+  label.textContent = 'Assign to (optional)';
+  const select = document.createElement('select');
+  select.id = 'assignee';
+  const unassigned = document.createElement('option');
+  unassigned.value = '';
+  unassigned.textContent = 'Unassigned';
+  select.appendChild(unassigned);
+  for (const a of options.assignees) {
+    const opt = document.createElement('option');
+    opt.value = a.userId;
+    opt.textContent = a.displayName;
+    select.appendChild(opt);
+  }
+  const current =
+    draft.assigneeChoice !== undefined ? draft.assigneeChoice : options.defaultAssigneeId;
+  select.value = current ?? '';
+  select.addEventListener('change', () => {
+    draft.assigneeChoice = select.value === '' ? null : select.value;
+  });
+  slot.append(spacer, label, select);
 }
 
 function escapeHtml(s: string): string {

@@ -11,6 +11,13 @@ export interface ReportDraft {
   type?: IssueReportType;
   screenshotDataUrl?: string;
   crashReport?: CrashReport;
+  /**
+   * ITD-266: a tester's pick in the "Assign to" picker. `undefined` =
+   * no choice made (the project's triage default applies), `null` =
+   * explicitly unassigned. Only ever sent alongside a tester token —
+   * the server ignores it otherwise anyway.
+   */
+  assigneeId?: string | null;
 }
 
 function dataUrlParts(dataUrl: string): { contentType: string; base64: string } {
@@ -33,6 +40,7 @@ export async function submitReport(rt: Runtime, draft: ReportDraft): Promise<Cre
   // Decision 5); in testers-only mode it's what gets us past ingest.
   const testerToken = getTesterToken();
   if (testerToken) payload.testerToken = testerToken;
+  if (testerToken && draft.assigneeId !== undefined) payload.assigneeId = draft.assigneeId;
   if (draft.screenshotDataUrl) {
     const { contentType, base64 } = dataUrlParts(draft.screenshotDataUrl);
     payload.screenshot = {

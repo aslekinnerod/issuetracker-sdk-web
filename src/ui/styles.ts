@@ -34,12 +34,13 @@ export const REPORTER_STYLES = `
   .close:hover { background: #f3f4f6; }
   .body { padding: 16px; overflow-y: auto; }
   label { font-size: 0.8125em; color: #4b5563; display: block; margin-bottom: 4px; }
-  input[type=text], textarea {
+  input[type=text], textarea, select {
     width: 100%; padding: 0.57143em 0.71429em; border: 1px solid #8D949E;
     border-radius: 6px; font-size: 0.875em; color: #111827; background: white;
   }
   textarea { resize: vertical; min-height: 80px; font-family: inherit; }
-  input:focus, textarea:focus { outline: 2px solid #2563eb; outline-offset: -1px; border-color: transparent; }
+  select { font-family: inherit; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid #2563eb; outline-offset: -1px; border-color: transparent; }
   .types { display: flex; gap: 8px; margin-bottom: 12px; }
   .types button {
     all: unset; flex: 1; padding: 0.61538em; text-align: center;
