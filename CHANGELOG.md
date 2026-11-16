@@ -6,6 +6,8 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.17] - 2026-11-16
+
 ### Added
 
 - **Testers can assign a report from the form** (ITD-266). When the
