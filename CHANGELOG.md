@@ -21,6 +21,25 @@ format is based on [Keep a Changelog](https://keepachangelog.com/).
   fetch just hides the picker; a rejected tester token is cleared.
   Requires the matching backend (`listSdkAssignees`, `assigneeId` on
   `createIssueFromSdk`).
+- **The reporter follows the page's light/dark mode.** All SDK UI —
+  report dialog, screenshot editor, terminated view, onboarding popover
+  and floating button — now has a dark theme alongside the light one,
+  chosen by a new `configure({ theme })` option: `'auto'` (default),
+  `'light'` or `'dark'`. `'auto'` takes an explicit signal on `<html>`
+  first (`data-theme` / `data-bs-theme` / `data-color-scheme` /
+  `data-mode` = `dark`|`light`, a `dark`/`light` class, or a
+  single-valued computed `color-scheme`), else `prefers-color-scheme`,
+  and re-themes live while SDK UI is open (media-query listener plus a
+  MutationObserver on `<html>`, both removed when the last SDK surface
+  closes). Both themes are under WCAG AA contrast regression tests.
+  Previously the SDK always rendered light, so on a dark page the
+  dialog was a bright white sheet. The floating button flips to a light
+  fill on dark pages so it still stands out.
+
+### Changed
+
+- The screenshot editor's chrome is light in the light theme (it was
+  always near-black); it stays dark in the dark theme.
 
 ## [0.5.16] - 2026-11-11
 

@@ -39,6 +39,24 @@ independent). Widget-visibility toggle: **Ctrl/Cmd + Alt + T**. The
 floating widget is hidden by default — enable with
 `showFloatingWidget: true`.
 
+### Light and dark mode
+
+All SDK UI — the report dialog, screenshot editor, onboarding popover
+and floating button — renders light or dark via the `theme` option:
+
+```ts
+Issuetracker.configure({ apiKey: 'it_...', theme: 'auto' }); // 'auto' | 'light' | 'dark'
+```
+
+`'auto'` (the default) follows your page. An explicit signal on
+`<html>` wins: `data-theme`, `data-bs-theme`, `data-color-scheme` or
+`data-mode` set to `dark`/`light`; a `dark` or `light` class (e.g.
+Tailwind's `darkMode: 'class'`); or a computed `color-scheme` of just
+`dark` or `light`. Without one, the OS `prefers-color-scheme` decides.
+While SDK UI is on screen it re-themes live when the OS preference or
+those `<html>` attributes change. `'light'` and `'dark'` pin the mode.
+Both themes meet WCAG AA contrast.
+
 ## Assigning reports (testers only)
 
 When the install holds a tester token

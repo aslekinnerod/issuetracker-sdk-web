@@ -9,6 +9,7 @@ import { clearTesterToken, refreshRemoteConfig } from '../attestation';
 import { fetchAssigneeOptions, type AssigneeOptions } from '../assignees';
 import { isLifecycleTerminated, transitionToTerminated } from '../lifecycle';
 import { REPORTER_STYLES } from './styles';
+import { bindTheme } from './theme';
 import { mountEditor } from './editor';
 import { renderTerminated } from './terminated';
 import { manageModalFocus, type ModalFocusManager } from './focus';
@@ -57,6 +58,9 @@ export async function openReporter(runtime: Runtime): Promise<void> {
       zIndex: '2147483647',
     });
     const shadow = host.attachShadow({ mode: 'closed' });
+    // Light/dark from configure({ theme }), tracking the host page live
+    // while the dialog is open.
+    const unbindTheme = bindTheme(host);
     document.body.appendChild(host);
     // Trap focus in the dialog, inert the host page, restore focus to
     // the pre-open element on teardown.
@@ -66,6 +70,7 @@ export async function openReporter(runtime: Runtime): Promise<void> {
       focus,
       teardown: () => {
         host.remove();
+        unbindTheme();
         focus.release();
         active = false;
       },

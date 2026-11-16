@@ -1,6 +1,7 @@
 import shakeImage from './ui/onboarding/shake.webp';
 import longpressImage from './ui/onboarding/longpress.webp';
 import { manageModalFocus } from './ui/focus';
+import { bindTheme } from './ui/theme';
 import { describeShortcut, shortcutGlyphs } from './triggers/shortcut';
 import { WIDGET_TOGGLE_LABEL } from './triggers/widget';
 import type { ShortcutConfig } from './runtime';
@@ -91,6 +92,7 @@ function present(args: PresentArgs, markAfter: boolean): void {
                           // mid-onboarding doesn't render under it
   });
   const shadow = host.attachShadow({ mode: 'closed' });
+  const unbindTheme = bindTheme(host);
   document.body.appendChild(host);
 
   // Trap focus in the dialog, inert the host page, restore focus on
@@ -99,6 +101,7 @@ function present(args: PresentArgs, markAfter: boolean): void {
 
   const teardown = () => {
     host.remove();
+    unbindTheme();
     focus.release();
     active = false;
   };
@@ -178,7 +181,7 @@ function buildTiles(args: PresentArgs): Tile[] {
       // size and keeps the bundle small. Font size steps down for
       // longer combos (e.g. with Shift) so the label stays inside the
       // keycap rect.
-      inlineSvg: `<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="20" width="80" height="60" rx="8" fill="#EAF0F6" stroke="#1FA2E8" stroke-width="2"/><text x="50" y="57" text-anchor="middle" font-family="-apple-system, Helvetica, sans-serif" font-size="${glyphs.length > 3 ? 18 : 22}" font-weight="600" fill="#1FA2E8">${glyphs}</text></svg>`,
+      inlineSvg: `<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="20" width="80" height="60" rx="8" stroke-width="2" style="fill: var(--it-illo-fill); stroke: var(--it-illo-accent)"/><text x="50" y="57" text-anchor="middle" font-family="-apple-system, Helvetica, sans-serif" font-size="${glyphs.length > 3 ? 18 : 22}" font-weight="600" style="fill: var(--it-illo-accent)">${glyphs}</text></svg>`,
     });
   }
   if (args.enableFloatingWidget) {
@@ -188,7 +191,7 @@ function buildTiles(args: PresentArgs): Tile[] {
       // describes something that isn't on screen yet. Lead with how to
       // summon it; the hold-to-hide half is the way back out.
       caption: `${WIDGET_TOGGLE_LABEL} shows or hides it. Hold the button to tuck it away.`,
-      inlineSvg: '<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="75" cy="75" r="20" fill="#1FA2E8"/><circle cx="75" cy="75" r="20" fill="none" stroke="#0D7C8A" stroke-width="2" stroke-dasharray="4 4" opacity="0.5"/></svg>',
+      inlineSvg: '<svg aria-hidden="true" focusable="false" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="75" cy="75" r="20" style="fill: var(--it-illo-accent)"/><circle cx="75" cy="75" r="20" fill="none" stroke-width="2" stroke-dasharray="4 4" opacity="0.5" style="stroke: var(--it-illo-ring)"/></svg>',
     });
   }
   return tiles;
@@ -221,9 +224,50 @@ const STYLES = `
   /* 1rem pierces the shadow boundary and tracks the user's browser
      default font size (WCAG 1.4.4); all inner sizes are em off this base. */
   :host { all: initial; font-size: 1rem; }
+  /* Theme tokens — see src/ui/theme.ts and REPORTER_STYLES. */
+  :host {
+    color-scheme: light;
+    --it-overlay: rgba(14, 26, 43, 0.55);
+    --it-shadow: rgba(14, 26, 43, 0.25);
+    --it-focus-ring: #1577AD;
+    --it-sheet-bg: #F4F7FA;
+    --it-brand: #1FA2E8;
+    --it-heading: #0E1A2B;
+    --it-subtitle: #5B6B80;
+    --it-tile-bg: #FFFFFF;
+    --it-tile-border: #DCE4ED;
+    --it-illo-bg: #EAF0F6;
+    --it-illo-fill: #EAF0F6;
+    --it-illo-accent: #1FA2E8;
+    --it-illo-ring: #0D7C8A;
+    --it-caption: #43536B;
+    --it-primary-bg: #1577AD;
+    --it-primary-text: #FFFFFF;
+    --it-primary-hover: #116591;
+  }
+  :host([data-theme="dark"]) {
+    color-scheme: dark;
+    --it-overlay: rgba(0, 0, 0, 0.6);
+    --it-shadow: rgba(0, 0, 0, 0.5);
+    --it-focus-ring: #85d6ff;
+    --it-sheet-bg: #1b1e25;
+    --it-brand: #6aa8f7;
+    --it-heading: #f0f2f5;
+    --it-subtitle: #a7acb4;
+    --it-tile-bg: #21242c;
+    --it-tile-border: #2e323b;
+    --it-illo-bg: #14161c;
+    --it-illo-fill: #21242c;
+    --it-illo-accent: #6aa8f7;
+    --it-illo-ring: #85d6ff;
+    --it-caption: #a7acb4;
+    --it-primary-bg: #5b9df2;
+    --it-primary-text: #14161c;
+    --it-primary-hover: #7fb3f5;
+  }
   .overlay {
     position: fixed; inset: 0;
-    background: rgba(14, 26, 43, 0.55);
+    background: var(--it-overlay);
     display: flex; align-items: center; justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
@@ -231,37 +275,37 @@ const STYLES = `
     .overlay { animation: it-fadein 160ms ease-out; }
   }
   @keyframes it-fadein { from { opacity: 0 } to { opacity: 1 } }
-  button:focus-visible { outline: 2px solid #1577AD; outline-offset: 2px; }
+  button:focus-visible { outline: 2px solid var(--it-focus-ring); outline-offset: 2px; }
   .sheet {
-    background: #F4F7FA;
+    background: var(--it-sheet-bg);
     border-radius: 12px;
     max-width: 480px;
     width: calc(100% - 32px);
     max-height: calc(100vh - 64px);
     overflow-y: auto;
     padding: 32px 24px 24px;
-    box-shadow: 0 10px 40px rgba(14, 26, 43, 0.25);
+    box-shadow: 0 10px 40px var(--it-shadow);
   }
   .header { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
-  .brand-icon { color: #1FA2E8; flex-shrink: 0; }
+  .brand-icon { color: var(--it-brand); flex-shrink: 0; }
   h2 {
     margin: 0; font-size: 1em; font-weight: 600;
-    color: #0E1A2B; letter-spacing: -0.3px;
+    color: var(--it-heading); letter-spacing: -0.3px;
   }
   .subtitle {
-    margin: 2px 0 0; font-size: 0.75em; color: #5B6B80;
+    margin: 2px 0 0; font-size: 0.75em; color: var(--it-subtitle);
   }
   .tiles { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
   .tile {
     display: flex; gap: 16px; align-items: center;
-    background: #FFFFFF;
-    border: 1px solid #DCE4ED;
+    background: var(--it-tile-bg);
+    border: 1px solid var(--it-tile-border);
     border-radius: 8px;
     padding: 12px;
   }
   .illustration {
     width: 88px; height: 88px;
-    background: #EAF0F6;
+    background: var(--it-illo-bg);
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
@@ -272,17 +316,17 @@ const STYLES = `
   .illustration img { width: 100%; height: 100%; display: block; object-fit: contain; }
   .tile-body { flex: 1; min-width: 0; }
   .tile-title {
-    font-size: 0.9375em; font-weight: 600; color: #0E1A2B;
+    font-size: 0.9375em; font-weight: 600; color: var(--it-heading);
     margin-bottom: 2px;
   }
-  .tile-caption { font-size: 0.8125em; color: #43536B; }
+  .tile-caption { font-size: 0.8125em; color: var(--it-caption); }
   .primary {
     width: 100%; min-height: 44px;
-    background: #1577AD; color: #FFFFFF;
+    background: var(--it-primary-bg); color: var(--it-primary-text);
     border: none; border-radius: 4px;
     font-size: 0.875em; font-weight: 500;
     cursor: pointer; letter-spacing: -0.1px;
   }
-  .primary:hover { background: #116591; }
+  .primary:hover { background: var(--it-primary-hover); }
   .primary:active { transform: translateY(1px); }
 `;

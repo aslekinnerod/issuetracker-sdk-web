@@ -59,6 +59,9 @@ function widgetStyles(): string {
 
 const NAMED: Record<string, string> = { white: '#FFFFFF', black: '#000000' };
 
+type Theme = 'light' | 'dark';
+const THEMES: Theme[] = ['light', 'dark'];
+
 /** Returns the declaration block for the first occurrence of `selector { ... }`. */
 function block(css: string, selector: string): string {
   const idx = css.indexOf(`${selector} {`);
@@ -68,14 +71,37 @@ function block(css: string, selector: string): string {
   return css.slice(open + 1, close);
 }
 
-/** Extracts a hex color for `prop` inside `selector`'s block (first hex in the value). */
-function cssColor(css: string, selector: string, prop: string): string {
+/**
+ * Theme tokens (`--it-*`) for a stylesheet: light ones from every
+ * `:host { ... }` block, with `:host([data-theme="dark"]) { ... }`
+ * layered on top for dark — the same cascade the browser applies.
+ */
+function tokens(css: string, theme: Theme): Record<string, string> {
+  const out: Record<string, string> = {};
+  const collect = (selector: string) => {
+    const re = new RegExp(`${selector.replace(/[[\]()"=]/g, '\\$&')}\\s*{([^}]*)}`, 'g');
+    for (const m of css.matchAll(re)) {
+      for (const d of m[1].matchAll(/(--[\w-]+):\s*([^;]+);/g)) out[d[1]] = d[2].trim();
+    }
+  };
+  collect(':host');
+  if (theme === 'dark') collect(':host([data-theme="dark"])');
+  return out;
+}
+
+/** Extracts a hex color for `prop` inside `selector`'s block, resolving `var(--it-*)` for `theme`. */
+function cssColor(css: string, selector: string, prop: string, theme: Theme = 'light'): string {
   const body = block(css, selector);
-  const m = body.match(new RegExp(`${prop}:\\s*([^;]+);`));
+  const m = body.match(new RegExp(`(?:^|[;\\s])${prop}:\\s*([^;]+);`));
   if (!m) throw new Error(`property ${prop} not found in ${selector}`);
-  const value = m[1].trim();
-  const hex = value.match(/#[0-9a-fA-F]{3,6}/)?.[0] ?? NAMED[value.split(/\s/)[0]];
-  if (!hex) throw new Error(`no color literal in "${prop}: ${value}" (${selector})`);
+  const vars = tokens(css, theme);
+  const value = m[1].trim().replace(/var\((--[\w-]+)\)/g, (_, name: string) => {
+    const v = vars[name];
+    if (!v) throw new Error(`token ${name} not defined for ${theme} theme`);
+    return v;
+  });
+  const hex = value.match(/#[0-9a-fA-F]{3,6}\b/)?.[0] ?? NAMED[value.split(/\s/)[0]];
+  if (!hex) throw new Error(`no color literal in "${prop}: ${value}" (${selector}, ${theme})`);
   return hex;
 }
 
@@ -83,7 +109,7 @@ const REPORTER = REPORTER_STYLES;
 const ONBOARDING = onboardingStyles();
 const WIDGET = widgetStyles();
 
-// --- Token pairs under regression protection.
+// --- Token pairs under regression protection, checked in BOTH themes.
 // Add rows here as new UI colors land. min is the WCAG threshold:
 // 4.5 for normal text (1.4.3), 3.0 for non-text UI (1.4.11).
 
@@ -94,61 +120,146 @@ interface Pair {
   min: number;
 }
 
-const PAIRS: Pair[] = [
-  // Reporter sheet (src/ui/styles.ts)
-  {
-    name: 'reporter primary button label on button fill',
-    fg: cssColor(REPORTER, '.footer .primary', 'color'),
-    bg: cssColor(REPORTER, '.footer .primary', 'background'),
-    min: 4.5,
-  },
-  {
-    name: 'reporter error text on sheet',
-    fg: cssColor(REPORTER, '.error', 'color'),
-    bg: cssColor(REPORTER, '.sheet', 'background'),
-    min: 4.5,
-  },
-  {
-    name: 'reporter field labels on sheet',
-    fg: cssColor(REPORTER, 'label', 'color'),
-    bg: cssColor(REPORTER, '.sheet', 'background'),
-    min: 4.5,
-  },
-  {
-    name: 'reporter input/select border on sheet (non-text, 1.4.11)',
-    fg: cssColor(REPORTER, 'input[type=text], textarea, select', 'border').replace(
-      /^.*(#\w{6}).*$/,
-      '$1',
-    ),
-    bg: cssColor(REPORTER, '.sheet', 'background'),
-    min: 3.0,
-  },
-  {
-    name: 'reporter focus outline on sheet (non-text, 1.4.11)',
-    fg: cssColor(REPORTER, 'button:focus-visible', 'outline'),
-    bg: cssColor(REPORTER, '.sheet', 'background'),
-    min: 3.0,
-  },
-  // Onboarding popover (src/onboarding.ts)
-  {
-    name: 'onboarding primary button label on button fill',
-    fg: cssColor(ONBOARDING, '.primary', 'color'),
-    bg: cssColor(ONBOARDING, '.primary', 'background'),
-    min: 4.5,
-  },
-  {
-    name: 'onboarding subtitle on sheet',
-    fg: cssColor(ONBOARDING, '.subtitle', 'color'),
-    bg: cssColor(ONBOARDING, '.sheet', 'background'),
-    min: 4.5,
-  },
-  {
-    name: 'onboarding focus outline on sheet (non-text, 1.4.11)',
-    fg: cssColor(ONBOARDING, 'button:focus-visible', 'outline'),
-    bg: cssColor(ONBOARDING, '.sheet', 'background'),
-    min: 3.0,
-  },
-];
+function pairs(t: Theme): Pair[] {
+  const c = (css: string, sel: string, prop: string) => cssColor(css, sel, prop, t);
+  return [
+    // Reporter sheet (src/ui/styles.ts)
+    {
+      name: 'reporter primary button label on button fill',
+      fg: c(REPORTER, '.footer .primary', 'color'),
+      bg: c(REPORTER, '.footer .primary', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter body text on sheet',
+      fg: c(REPORTER, '.sheet', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter error text on sheet',
+      fg: c(REPORTER, '.error', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter sent status on sheet',
+      fg: c(REPORTER, '.status', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter field labels on sheet',
+      fg: c(REPORTER, 'label', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter link buttons on sheet',
+      fg: c(REPORTER, '.reporter-row button', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter secondary button on sheet',
+      fg: c(REPORTER, '.footer .secondary', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter name-prompt hint on sheet',
+      fg: c(REPORTER, '.name-prompt p', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter input/select text on field',
+      fg: c(REPORTER, 'input[type=text], textarea, select', 'color'),
+      bg: c(REPORTER, 'input[type=text], textarea, select', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter type chip label on sheet',
+      fg: c(REPORTER, '.types button', 'color'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter selected type chip label on chip',
+      fg: c(REPORTER, '.types button[aria-pressed="true"]', 'color'),
+      bg: c(REPORTER, '.types button[aria-pressed="true"]', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'reporter input/select border on sheet (non-text, 1.4.11)',
+      fg: c(REPORTER, 'input[type=text], textarea, select', 'border'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 3.0,
+    },
+    {
+      name: 'reporter input/select border on field (non-text, 1.4.11)',
+      fg: c(REPORTER, 'input[type=text], textarea, select', 'border'),
+      bg: c(REPORTER, 'input[type=text], textarea, select', 'background'),
+      min: 3.0,
+    },
+    {
+      name: 'reporter focus outline on sheet (non-text, 1.4.11)',
+      fg: c(REPORTER, 'button:focus-visible', 'outline'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 3.0,
+    },
+    {
+      name: 'reporter input/select focus outline on sheet (non-text, 1.4.11)',
+      fg: c(REPORTER, 'input:focus, textarea:focus, select:focus', 'outline'),
+      bg: c(REPORTER, '.sheet', 'background'),
+      min: 3.0,
+    },
+    {
+      name: 'editor toolbar text on editor',
+      fg: c(REPORTER, '.editor .topbar button', 'color'),
+      bg: c(REPORTER, '.editor', 'background'),
+      min: 4.5,
+    },
+    // Onboarding popover (src/onboarding.ts)
+    {
+      name: 'onboarding primary button label on button fill',
+      fg: c(ONBOARDING, '.primary', 'color'),
+      bg: c(ONBOARDING, '.primary', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'onboarding subtitle on sheet',
+      fg: c(ONBOARDING, '.subtitle', 'color'),
+      bg: c(ONBOARDING, '.sheet', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'onboarding tile caption on tile',
+      fg: c(ONBOARDING, '.tile-caption', 'color'),
+      bg: c(ONBOARDING, '.tile', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'onboarding tile title on tile',
+      fg: c(ONBOARDING, '.tile-title', 'color'),
+      bg: c(ONBOARDING, '.tile', 'background'),
+      min: 4.5,
+    },
+    {
+      name: 'onboarding focus outline on sheet (non-text, 1.4.11)',
+      fg: c(ONBOARDING, 'button:focus-visible', 'outline'),
+      bg: c(ONBOARDING, '.sheet', 'background'),
+      min: 3.0,
+    },
+    // Floating button (src/triggers/widget.ts)
+    {
+      name: 'floating button glyph on button fill',
+      fg: c(WIDGET, 'button', 'color'),
+      bg: c(WIDGET, 'button', 'background'),
+      min: 4.5,
+    },
+  ];
+}
 
 describe('WCAG contrast math', () => {
   it('black on white is 21:1', () => {
@@ -165,10 +276,29 @@ describe('WCAG contrast math', () => {
   });
 });
 
-describe('token contrast', () => {
-  it.each(PAIRS)('$name: $fg on $bg >= $min', ({ fg, bg, min }) => {
+describe.each(THEMES)('token contrast (%s theme)', (theme) => {
+  it.each(pairs(theme))('$name: $fg on $bg >= $min', ({ fg, bg, min }) => {
     const ratio = contrastRatio(fg, bg);
     expect(ratio, `${fg} on ${bg} is ${ratio.toFixed(3)}:1, needs ${min}:1`).toBeGreaterThanOrEqual(min);
+  });
+});
+
+describe('theme tokens', () => {
+  it.each([
+    { name: 'REPORTER_STYLES', css: REPORTER },
+    { name: 'onboarding', css: ONBOARDING },
+    { name: 'floating widget', css: WIDGET },
+  ])('$name defines every token it uses, with a dark override for each', ({ css }) => {
+    const used = new Set([...css.matchAll(/var\((--it-[\w-]+)\)/g)].map((m) => m[1]));
+    const light = tokens(css, 'light');
+    const darkOnly: Record<string, string> = {};
+    const darkBlock = css.match(/:host\(\[data-theme="dark"\]\)\s*{([^}]*)}/);
+    expect(darkBlock, 'missing :host([data-theme="dark"]) block').not.toBeNull();
+    for (const d of darkBlock![1].matchAll(/(--[\w-]+):\s*([^;]+);/g)) darkOnly[d[1]] = d[2];
+    for (const name of used) {
+      expect(light[name], `${name} has no light value`).toBeDefined();
+      expect(darkOnly[name], `${name} has no dark override`).toBeDefined();
+    }
   });
 });
 

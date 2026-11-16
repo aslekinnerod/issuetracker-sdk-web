@@ -19,6 +19,7 @@ import { installLongPress } from './triggers/long-press';
 import { installFloatingWidget } from './triggers/widget';
 import { presentOnboardingIfNeeded, presentOnboardingForced } from './onboarding';
 import { openReporter } from './ui/reporter';
+import { normalizeThemeSetting, setThemeSetting } from './ui/theme';
 
 let runtime: Runtime | null = null;
 let enabledTriggers: {
@@ -45,6 +46,7 @@ function applyDefaults(opts: ConfigureOptions): Defaults {
     enableCrashReporting: opts.enableCrashReporting ?? true,
     onConfigurationError: opts.onConfigurationError,
     terminatedUI: opts.terminatedUI,
+    theme: normalizeThemeSetting(opts.theme),
   };
 }
 
@@ -67,6 +69,9 @@ export const Issuetracker = {
       onConfigurationError: opts.onConfigurationError,
       terminatedUI: opts.terminatedUI,
     };
+    // Before any trigger can mount UI, so the first surface is already
+    // in the right mode.
+    setThemeSetting(opts.theme);
     // Rehydrate any prior TERMINATED state from localStorage before
     // wiring triggers, so the pre-flight gate in openReporter() is
     // authoritative immediately after configure() returns.
@@ -202,5 +207,6 @@ export type {
   IssueReportType,
   ShortcutConfig,
   TerminatedUiStrings,
+  ThemeSetting,
 } from './runtime';
 export type { SdkErrorReason } from './errors';
